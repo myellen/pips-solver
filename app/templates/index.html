@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pips Solver</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            touch-action: manipulation;
+        }
+        #solution-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .domino {
+            border: 1px solid #333;
+            padding: 10px;
+            text-align: center;
+            background-color: #f0f0f0;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Pips Solver</h1>
+    
+    <div>
+        <label for="grid-size">Grid Size: <span id="grid-size-display">4x4</span></label>
+        <input 
+            type="range" 
+            id="grid-size" 
+            min="0" 
+            max="3" 
+            step="1" 
+            value="1"
+        >
+    </div>
+    
+    <button id="solve-btn">Solve Puzzle</button>
+    
+    <div id="solution-grid"></div>
+
+    <script>
+        const gridSizeInput = document.getElementById('grid-size');
+        const gridSizeDisplay = document.getElementById('grid-size-display');
+        const solveBtn = document.getElementById('solve-btn');
+        const solutionGrid = document.getElementById('solution-grid');
+
+        const gridSizes = [3, 4, 5, 6];
+
+        gridSizeInput.addEventListener('input', () => {
+            const sizeIndex = gridSizeInput.value;
+            const gridSize = gridSizes[sizeIndex];
+            gridSizeDisplay.textContent = `${gridSize}x${gridSize}`;
+        });
+
+        solveBtn.addEventListener('click', async () => {
+            const sizeIndex = gridSizeInput.value;
+            const gridSize = gridSizes[sizeIndex];
+
+            try {
+                const response = await fetch('/solve', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ grid_size: gridSize })
+                });
+
+                const result = await response.json();
+
+                // Clear previous solution
+                solutionGrid.innerHTML = '';
+
+                if (result.solved) {
+                    result.solution.forEach(row => {
+                        row.forEach(domino => {
+                            const dominoEl = document.createElement('div');
+                            dominoEl.classList.add('domino');
+                            dominoEl.textContent = domino 
+                                ? `${domino.left}|${domino.right} (${domino.orientation})`
+                                : 'Empty';
+                            solutionGrid.appendChild(dominoEl);
+                        });
+                    });
+                } else {
+                    solutionGrid.innerHTML = '<p>No solution found.</p>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                solutionGrid.innerHTML = '<p>An error occurred.</p>';
+            }
+        });
+    </script>
+</body>
+</html>
