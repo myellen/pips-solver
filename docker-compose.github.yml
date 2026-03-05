@@ -1,0 +1,6 @@
+services:
+  pips-solver:
+    build: https://github.com/myellen/pips-solver.git
+    ports:
+      - "5000:5000"
+    restart: always
