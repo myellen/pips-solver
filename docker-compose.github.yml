@@ -4,3 +4,9 @@ services:
     ports:
       - "5000:5000"
     restart: always
+
+  pips-solver-touch:
+    build: https://github.com/myellen/pips-solver.git#claude/add-iphone-touch-gui-5UAzf
+    ports:
+      - "5001:5000"
+    restart: always
