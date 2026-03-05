@@ -5,6 +5,7 @@ from datetime import date
 
 from flask import Flask, render_template, request, jsonify
 from solver import PipsSolver, Domino, Constraint, ConstraintType
+from hint_generator import generate_hints, build_constraints_display
 
 app = Flask(__name__)
 
@@ -147,6 +148,65 @@ def solve_puzzle():
             return jsonify({'solved': True, 'solution': solver.get_solution_as_list()})
         else:
             return jsonify({'solved': False, 'solution': None})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/solve-with-hints', methods=['POST'])
+def solve_with_hints():
+    """Solve the puzzle and return step-by-step hints."""
+    try:
+        data = request.get_json(force=True) or {}
+        grid_size = data.get('grid_size', 4)
+
+        custom_pool = data.get('domino_pool')
+        active_cells_raw = data.get('active_cells')
+
+        if custom_pool is None and active_cells_raw is None:
+            if not isinstance(grid_size, int) or grid_size not in VALID_GRID_SIZES:
+                return jsonify({'error': f'grid_size must be one of {sorted(VALID_GRID_SIZES)}'}), 400
+
+        constraints = []
+        for c in data.get('constraints', []):
+            try:
+                constraint_type = ConstraintType[c['type']]
+                region = [tuple(pos) for pos in c.get('region', [])]
+                value = c.get('value')
+                constraints.append(Constraint(constraint_type, value, region))
+            except (KeyError, TypeError):
+                return jsonify({'error': f'Invalid constraint: {c}'}), 400
+
+        domino_pool = None
+        if custom_pool is not None:
+            domino_pool = [Domino(pair[0], pair[1]) for pair in custom_pool]
+
+        active_cells = None
+        if active_cells_raw is not None:
+            active_cells = {tuple(c) for c in active_cells_raw}
+
+        solver = PipsSolver(
+            grid_size=grid_size,
+            constraints=constraints,
+            domino_pool=domino_pool,
+            active_cells=active_cells,
+        )
+        solved = solver.solve()
+
+        if not solved:
+            return jsonify({'solved': False, 'solution': None, 'hints': []})
+
+        solution = solver.get_solution_as_list()
+        pool = solver.domino_pool
+        hints = generate_hints(solution, constraints, pool, grid_size)
+        constraints_display = build_constraints_display(constraints)
+
+        return jsonify({
+            'solved': True,
+            'solution': solution,
+            'hints': hints,
+            'constraints_display': constraints_display,
+        })
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

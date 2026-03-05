@@ -228,11 +228,128 @@
         .cell.v-first  { border-bottom: none; }
         .cell.v-second { border-top: none; }
 
+        .cell.unrevealed {
+            background: #f8f8f8;
+        }
+
+        /* Constraint label overlay in cells */
+        .constraint-label {
+            position: absolute;
+            top: 1px;
+            left: 2px;
+            font-size: 9px;
+            font-weight: 600;
+            color: #666;
+            line-height: 1;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        /* Flash animation when a domino is revealed */
+        @keyframes revealFlash {
+            0% { box-shadow: inset 0 0 0 3px #f0c040; }
+            100% { box-shadow: inset 0 0 0 0px transparent; }
+        }
+
+        .cell.just-revealed {
+            animation: revealFlash 0.6s ease-out;
+        }
+
+        /* Region tint colors (very pale) */
+        .region-tint-0 { background: #fff3e0; }
+        .region-tint-1 { background: #e8f5e9; }
+        .region-tint-2 { background: #e3f2fd; }
+        .region-tint-3 { background: #fce4ec; }
+        .region-tint-4 { background: #f3e5f5; }
+        .region-tint-5 { background: #e0f7fa; }
+        .region-tint-6 { background: #fff8e1; }
+        .region-tint-7 { background: #f1f8e9; }
+        .region-tint-8 { background: #ede7f6; }
+        .region-tint-9 { background: #e8eaf6; }
+        .region-tint-10 { background: #fbe9e7; }
+        .region-tint-11 { background: #efebe9; }
+
         .legend {
             margin-top: 12px;
             font-size: 15px;
             color: #666;
             text-align: center;
+        }
+
+        /* --- Lesson section --- */
+        #lesson-section {
+            margin-top: 16px;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 14px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #1a8d4f;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .hint-card {
+            background: #f0f7ff;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 14px;
+            min-height: 60px;
+        }
+
+        .hint-text {
+            font-size: 18px;
+            line-height: 1.5;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .explanation-text {
+            font-size: 17px;
+            line-height: 1.5;
+            color: #1a5c2e;
+            background: #e8f5e9;
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-top: 10px;
+            font-weight: 500;
+        }
+
+        .hint-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .hint-controls .btn-primary {
+            flex: 2;
+        }
+
+        .hint-controls .btn-secondary {
+            flex: 1;
+            font-size: 15px;
+            padding: 14px 10px;
+        }
+
+        #step-counter {
+            text-align: center;
+            margin-top: 8px;
+            color: #666;
+            font-size: 15px;
+        }
+
+        /* Highlight the active constraint region */
+        .cell.region-highlight {
+            outline: 2px solid #1a6dcc;
+            outline-offset: -2px;
+            z-index: 1;
         }
 
         /* --- Advanced section --- */
@@ -324,6 +441,10 @@
                 flex-direction: column;
                 gap: 0;
             }
+
+            .constraint-label {
+                font-size: 8px;
+            }
         }
     </style>
 </head>
@@ -341,7 +462,7 @@
     </details>
 
     <div class="main-action">
-        <h2>Solve Today's Puzzle</h2>
+        <h2>Learn Today's Puzzle</h2>
         <div class="form-row">
             <div class="form-group">
                 <label for="difficulty-select">Difficulty</label>
@@ -356,7 +477,7 @@
                 <input type="date" id="puzzle-date">
             </div>
         </div>
-        <button class="btn btn-primary" id="import-btn">Solve Puzzle</button>
+        <button class="btn btn-primary" id="import-btn">Learn This Puzzle</button>
         <div id="import-status" class="status-msg"></div>
         <div id="puzzle-info"></div>
     </div>
@@ -364,6 +485,21 @@
     <div class="grid-wrapper">
         <div id="solution-grid"></div>
         <div id="grid-legend" class="legend" style="display:none;">Each color is one domino. The number is the pips on that half.</div>
+    </div>
+
+    <div id="lesson-section" style="display:none;">
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="hint-card" id="hint-card">
+            <div class="hint-text" id="hint-text">Tap "Show Hint" to begin learning step by step.</div>
+            <div class="explanation-text" id="explanation-text" style="display:none;"></div>
+        </div>
+        <div class="hint-controls">
+            <button class="btn btn-primary" id="hint-action-btn">Show Hint</button>
+            <button class="btn btn-secondary" id="show-solution-btn">Show All</button>
+        </div>
+        <div id="step-counter"></div>
     </div>
 
     <details class="advanced-section">
@@ -395,6 +531,27 @@
         const importStatus = document.getElementById('import-status');
         const puzzleInfo = document.getElementById('puzzle-info');
 
+        // Lesson elements
+        const lessonSection = document.getElementById('lesson-section');
+        const hintCard = document.getElementById('hint-card');
+        const hintText = document.getElementById('hint-text');
+        const explanationText = document.getElementById('explanation-text');
+        const hintActionBtn = document.getElementById('hint-action-btn');
+        const showSolutionBtn = document.getElementById('show-solution-btn');
+        const stepCounter = document.getElementById('step-counter');
+        const progressFill = document.getElementById('progress-fill');
+
+        // --- Lesson state ---
+        let lessonActive = false;
+        let hintSteps = [];
+        let currentStep = 0;
+        let stepState = 'READY'; // 'READY' | 'HINT_SHOWN' | 'REVEALED'
+        let fullSolution = null;
+        let lessonGridSize = 0;
+        let lessonNumCols = 0;
+        let lessonCellSize = 0;
+        let lessonFontSize = 0;
+
         // --- Grid size segmented control ---
         let selectedGridSize = 4;
         const gridSizeButtons = document.querySelectorAll('#grid-size-selector button');
@@ -407,10 +564,20 @@
                 solutionGrid.innerHTML = '';
                 statusEl.textContent = '';
                 gridLegend.style.display = 'none';
+                resetLesson();
             });
         });
 
-        // --- Import & Solve from NYT ---
+        function resetLesson() {
+            lessonActive = false;
+            hintSteps = [];
+            currentStep = 0;
+            stepState = 'READY';
+            fullSolution = null;
+            lessonSection.style.display = 'none';
+        }
+
+        // --- Import & Learn from NYT ---
         importBtn.addEventListener('click', async () => {
             const difficulty = document.getElementById('difficulty-select').value;
             const puzzleDate = importDateInput.value;
@@ -422,6 +589,7 @@
             solutionGrid.innerHTML = '';
             statusEl.textContent = '';
             gridLegend.style.display = 'none';
+            resetLesson();
 
             try {
                 const fetchResp = await fetch(
@@ -440,7 +608,7 @@
                     `${puzzle.domino_pool.length} domino${puzzle.domino_pool.length !== 1 ? 's' : ''}`;
                 importStatus.textContent = 'Solving\u2026';
 
-                const solveResp = await fetch('/solve', {
+                const solveResp = await fetch('/solve-with-hints', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -456,9 +624,23 @@
                     importStatus.textContent = result.error;
                     importStatus.className = 'status-msg error';
                 } else if (result.solved) {
-                    importStatus.textContent = 'Solution found!';
+                    importStatus.textContent = 'Puzzle ready! Follow the hints below.';
                     importStatus.className = 'status-msg success';
-                    renderGrid(result.solution);
+
+                    fullSolution = result.solution;
+                    hintSteps = result.hints;
+
+                    // Build active cells set for rendering
+                    const activeCellsSet = new Set(
+                        puzzle.active_cells.map(c => `${c[0]},${c[1]}`)
+                    );
+
+                    renderEmptyGrid(
+                        puzzle.grid_size,
+                        activeCellsSet,
+                        result.constraints_display
+                    );
+                    startLesson();
                 } else {
                     importStatus.textContent = 'No solution found.';
                     importStatus.className = 'status-msg error';
@@ -472,13 +654,14 @@
             }
         });
 
-        // --- Solve empty grid ---
+        // --- Solve empty grid (unchanged) ---
         solveBtn.addEventListener('click', async () => {
             solveBtn.disabled = true;
             statusEl.textContent = 'Solving\u2026';
             statusEl.className = 'status-msg loading';
             solutionGrid.innerHTML = '';
             gridLegend.style.display = 'none';
+            resetLesson();
 
             try {
                 const response = await fetch('/solve', {
@@ -516,13 +699,13 @@
             '#FFCCE5', '#CCF5FF', '#FFE5CC', '#CCF5E6', '#F5CCFF', '#CCFFE5',
         ];
 
+        // --- Render the full solved grid (for advanced / empty grid solve) ---
         function renderGrid(solution) {
             const numRows = solution.length;
             const numCols = solution[0].length;
 
-            // Calculate cell size to fit screen
             const maxWidth = Math.min(document.body.clientWidth - 32, 570);
-            const borderSpace = 6 + numCols + 1; // outer border + inner borders
+            const borderSpace = 6 + numCols + 1;
             const cellSize = Math.max(36, Math.floor((maxWidth - borderSpace) / numCols));
             const fontSize = Math.max(16, Math.floor(cellSize * 0.45));
 
@@ -556,6 +739,227 @@
 
             gridLegend.style.display = 'block';
         }
+
+        // =====================================================================
+        // LESSON MODE
+        // =====================================================================
+
+        function renderEmptyGrid(gridSize, activeCellsSet, constraintsDisplay) {
+            solutionGrid.innerHTML = '';
+            lessonGridSize = gridSize;
+            lessonNumCols = gridSize;
+
+            const maxWidth = Math.min(document.body.clientWidth - 32, 570);
+            const borderSpace = 6 + gridSize + 1;
+            lessonCellSize = Math.max(36, Math.floor((maxWidth - borderSpace) / gridSize));
+            lessonFontSize = Math.max(16, Math.floor(lessonCellSize * 0.45));
+
+            solutionGrid.style.gridTemplateColumns = `repeat(${gridSize}, ${lessonCellSize}px)`;
+
+            // Build cell-to-constraint-region mapping for labels and tints
+            const cellToRegion = {}; // "x,y" -> region index
+            const cellIsFirstInRegion = {}; // "x,y" -> true if first cell in region
+            const regionLabels = {}; // region index -> label string
+
+            if (constraintsDisplay) {
+                constraintsDisplay.forEach((c, idx) => {
+                    regionLabels[idx] = c.label;
+                    // Find the top-left cell of this region (for label placement)
+                    let firstKey = null;
+                    let firstRow = Infinity;
+                    let firstCol = Infinity;
+                    c.region.forEach(cell => {
+                        const key = `${cell[0]},${cell[1]}`;
+                        cellToRegion[key] = idx;
+                        if (cell[0] < firstRow || (cell[0] === firstRow && cell[1] < firstCol)) {
+                            firstRow = cell[0];
+                            firstCol = cell[1];
+                            firstKey = key;
+                        }
+                    });
+                    if (firstKey) {
+                        cellIsFirstInRegion[firstKey] = idx;
+                    }
+                });
+            }
+
+            for (let x = 0; x < gridSize; x++) {
+                for (let y = 0; y < gridSize; y++) {
+                    const key = `${x},${y}`;
+                    const div = document.createElement('div');
+                    div.classList.add('cell');
+                    div.setAttribute('data-row', x);
+                    div.setAttribute('data-col', y);
+                    div.style.width = lessonCellSize + 'px';
+                    div.style.height = lessonCellSize + 'px';
+                    div.style.fontSize = lessonFontSize + 'px';
+
+                    if (!activeCellsSet.has(key)) {
+                        div.style.background = '#ddd';
+                    } else {
+                        div.classList.add('unrevealed');
+                        // Add region tint
+                        const regionIdx = cellToRegion[key];
+                        if (regionIdx !== undefined) {
+                            div.classList.add(`region-tint-${regionIdx % 12}`);
+                        }
+                        // Add constraint label on the first cell of each region
+                        if (cellIsFirstInRegion[key] !== undefined) {
+                            const label = document.createElement('span');
+                            label.classList.add('constraint-label');
+                            label.textContent = regionLabels[cellIsFirstInRegion[key]];
+                            div.appendChild(label);
+                        }
+                    }
+
+                    solutionGrid.appendChild(div);
+                }
+            }
+        }
+
+        function getCellElement(row, col) {
+            const idx = row * lessonNumCols + col;
+            return solutionGrid.children[idx];
+        }
+
+        function startLesson() {
+            lessonActive = true;
+            currentStep = 0;
+            stepState = 'READY';
+
+            lessonSection.style.display = 'block';
+            hintText.textContent = 'Tap "Show Hint" to begin learning step by step.';
+            explanationText.style.display = 'none';
+            hintActionBtn.textContent = 'Show Hint';
+            hintActionBtn.disabled = false;
+            showSolutionBtn.style.display = '';
+            updateProgress();
+
+            lessonSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function updateProgress() {
+            const total = hintSteps.length;
+            const done = Math.min(currentStep, total);
+            if (total > 0) {
+                progressFill.style.width = `${(done / total) * 100}%`;
+                if (done < total) {
+                    stepCounter.textContent = `Step ${done + 1} of ${total}`;
+                } else {
+                    stepCounter.textContent = `All ${total} steps complete!`;
+                }
+            }
+        }
+
+        function highlightRegion(regionCells) {
+            // Clear any previous highlights
+            clearRegionHighlight();
+            if (!regionCells) return;
+            regionCells.forEach(cell => {
+                const el = getCellElement(cell[0], cell[1]);
+                if (el) el.classList.add('region-highlight');
+            });
+        }
+
+        function clearRegionHighlight() {
+            solutionGrid.querySelectorAll('.region-highlight').forEach(el => {
+                el.classList.remove('region-highlight');
+            });
+        }
+
+        function revealStep(stepIndex) {
+            const step = hintSteps[stepIndex];
+            step.cells.forEach((cell, i) => {
+                const [row, col] = cell;
+                const el = getCellElement(row, col);
+                if (!el) return;
+
+                // Remove constraint label if present
+                const label = el.querySelector('.constraint-label');
+                if (label) label.remove();
+
+                // Remove unrevealed and region tint
+                el.classList.remove('unrevealed');
+                for (let t = 0; t < 12; t++) {
+                    el.classList.remove(`region-tint-${t}`);
+                }
+
+                el.textContent = step.values[i];
+                el.style.background = COLORS[step.domino_idx % COLORS.length];
+                el.style.fontSize = lessonFontSize + 'px';
+
+                // Apply domino border classes
+                if (step.orientation === 'horizontal') {
+                    el.classList.add(i === 0 ? 'h-first' : 'h-second');
+                } else {
+                    el.classList.add(i === 0 ? 'v-first' : 'v-second');
+                }
+
+                // Flash animation
+                el.classList.add('just-revealed');
+                setTimeout(() => el.classList.remove('just-revealed'), 600);
+            });
+        }
+
+        // --- Hint action button state machine ---
+        hintActionBtn.addEventListener('click', () => {
+            if (!lessonActive || hintSteps.length === 0) return;
+
+            if (stepState === 'READY') {
+                // Show the hint text + highlight the constraint region
+                const step = hintSteps[currentStep];
+                hintText.textContent = step.hint;
+                explanationText.style.display = 'none';
+                highlightRegion(step.constraint_region);
+                stepState = 'HINT_SHOWN';
+                hintActionBtn.textContent = 'Reveal Answer';
+            } else if (stepState === 'HINT_SHOWN') {
+                // Reveal the domino on the grid + show explanation
+                const step = hintSteps[currentStep];
+                revealStep(currentStep);
+                explanationText.textContent = step.explanation;
+                explanationText.style.display = 'block';
+                clearRegionHighlight();
+                stepState = 'REVEALED';
+                currentStep++;
+
+                if (currentStep < hintSteps.length) {
+                    hintActionBtn.textContent = 'Next Hint';
+                } else {
+                    hintActionBtn.textContent = 'Puzzle Complete!';
+                    hintActionBtn.disabled = true;
+                    showSolutionBtn.style.display = 'none';
+                }
+                updateProgress();
+            } else if (stepState === 'REVEALED') {
+                // Move to next step
+                stepState = 'READY';
+                hintText.textContent = 'Tap "Show Hint" to see the next clue.';
+                explanationText.style.display = 'none';
+                hintActionBtn.textContent = 'Show Hint';
+                updateProgress();
+            }
+
+            hintCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+
+        // --- Show full solution ---
+        showSolutionBtn.addEventListener('click', () => {
+            if (!lessonActive) return;
+            // Reveal all remaining steps
+            for (let i = currentStep; i < hintSteps.length; i++) {
+                revealStep(i);
+            }
+            clearRegionHighlight();
+            currentStep = hintSteps.length;
+            stepState = 'REVEALED';
+            hintText.textContent = 'Full solution revealed.';
+            explanationText.style.display = 'none';
+            hintActionBtn.textContent = 'Puzzle Complete!';
+            hintActionBtn.disabled = true;
+            showSolutionBtn.style.display = 'none';
+            updateProgress();
+        });
     </script>
 </body>
 </html>
