@@ -2,162 +2,392 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Pips Solver</title>
     <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
             max-width: 600px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 16px;
+            padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
             touch-action: manipulation;
+            font-size: 18px;
+            color: #222;
+            background: #fff;
         }
 
-        .controls {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
+        h1 {
+            font-size: 28px;
+            margin: 0 0 4px;
         }
 
-        label {
-            font-weight: bold;
-        }
-
-        input[type="range"] {
-            width: 160px;
-        }
-
-        #solve-btn {
-            padding: 8px 20px;
+        .subtitle {
+            color: #555;
             font-size: 16px;
-            cursor: pointer;
+            margin: 0 0 20px;
+            line-height: 1.4;
         }
 
-        #solve-btn:disabled {
-            opacity: 0.5;
+        /* --- How to Play (collapsible) --- */
+        .how-to-play {
+            margin-bottom: 20px;
+        }
+
+        .how-to-play summary {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a6dcc;
+            cursor: pointer;
+            padding: 10px 0;
+            list-style: none;
+        }
+
+        .how-to-play summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .how-to-play summary::before {
+            content: '\25B6\00a0';
+            font-size: 14px;
+        }
+
+        .how-to-play[open] summary::before {
+            content: '\25BC\00a0';
+        }
+
+        .how-to-play-content {
+            background: #f0f7ff;
+            border-radius: 10px;
+            padding: 16px;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .how-to-play-content p {
+            margin: 0 0 10px;
+        }
+
+        .how-to-play-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .how-to-play-content strong {
+            color: #111;
+        }
+
+        /* --- Main action section --- */
+        .main-action {
+            background: #f5f8f5;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .main-action h2 {
+            font-size: 20px;
+            margin: 0 0 14px;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 6px;
+            color: #444;
+        }
+
+        .form-group select,
+        .form-group input[type="date"] {
+            width: 100%;
+            padding: 12px 14px;
+            font-size: 18px;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            background: #fff;
+            color: #222;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+
+        .form-group select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 36px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 16px 20px;
+            font-size: 20px;
+            font-weight: 700;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+
+        .btn:active {
+            opacity: 0.7;
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
             cursor: not-allowed;
         }
 
-        #status {
-            margin-top: 8px;
-            min-height: 1.4em;
-            color: #555;
+        .btn-primary {
+            background: #1a8d4f;
+            color: #fff;
         }
 
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+            font-size: 17px;
+            font-weight: 600;
+            padding: 14px 16px;
+        }
+
+        /* --- Status messages --- */
+        .status-msg {
+            margin-top: 12px;
+            font-size: 17px;
+            min-height: 1.5em;
+            text-align: center;
+        }
+
+        .status-msg.loading {
+            color: #666;
+        }
+
+        .status-msg.success {
+            color: #1a7a3a;
+            font-weight: 600;
+        }
+
+        .status-msg.error {
+            color: #cc3333;
+            font-weight: 600;
+        }
+
+        #puzzle-info {
+            margin-top: 6px;
+            font-size: 15px;
+            color: #555;
+            text-align: center;
+        }
+
+        /* --- Solution grid --- */
         #solution-grid {
             display: inline-grid;
             border: 3px solid #222;
             margin-top: 16px;
         }
 
+        .grid-wrapper {
+            display: flex;
+            justify-content: center;
+            flex-direction: column;
+            align-items: center;
+        }
+
         .cell {
-            width: 60px;
-            height: 60px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 28px;
             font-weight: bold;
-            border: 1px solid #999;
+            border: 1px solid #888;
             box-sizing: border-box;
             position: relative;
         }
 
-        /* Erase the shared border between the two cells of a domino */
         .cell.h-first  { border-right: none; }
         .cell.h-second { border-left: none; }
         .cell.v-first  { border-bottom: none; }
         .cell.v-second { border-top: none; }
 
-        .import-section {
-            margin-bottom: 20px;
-            padding: 12px 16px;
-            background: #f5f5f5;
-            border-radius: 6px;
+        .legend {
+            margin-top: 12px;
+            font-size: 15px;
+            color: #666;
+            text-align: center;
         }
 
-        .import-section h2 {
-            margin: 0 0 10px;
-            font-size: 16px;
+        /* --- Advanced section --- */
+        .advanced-section {
+            margin-top: 20px;
         }
 
-        .import-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .import-controls select,
-        .import-controls input[type="date"] {
-            padding: 6px 8px;
-            font-size: 14px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-
-        #import-btn {
-            padding: 6px 16px;
-            font-size: 14px;
+        .advanced-section summary {
+            font-size: 17px;
+            font-weight: 600;
+            color: #666;
             cursor: pointer;
+            padding: 10px 0;
+            list-style: none;
         }
 
-        #import-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        .advanced-section summary::-webkit-details-marker {
+            display: none;
         }
 
-        #import-status {
-            margin-top: 6px;
+        .advanced-section summary::before {
+            content: '\25B6\00a0';
             font-size: 13px;
-            color: #555;
-            min-height: 1.3em;
         }
 
-        #puzzle-info {
-            margin-top: 6px;
-            font-size: 13px;
-            color: #333;
+        .advanced-section[open] summary::before {
+            content: '\25BC\00a0';
+        }
+
+        .advanced-content {
+            background: #f5f5f5;
+            border-radius: 10px;
+            padding: 16px;
+        }
+
+        .advanced-content h3 {
+            margin: 0 0 12px;
+            font-size: 18px;
+        }
+
+        /* Grid size segmented control */
+        .grid-size-selector {
+            display: flex;
+            gap: 0;
+            margin-bottom: 14px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #ccc;
+        }
+
+        .grid-size-selector button {
+            flex: 1;
+            padding: 12px 0;
+            font-size: 17px;
+            font-weight: 600;
+            border: none;
+            background: #fff;
+            color: #444;
+            cursor: pointer;
+            border-right: 1px solid #ccc;
+            transition: background 0.15s;
+        }
+
+        .grid-size-selector button:last-child {
+            border-right: none;
+        }
+
+        .grid-size-selector button.active {
+            background: #1a6dcc;
+            color: #fff;
+        }
+
+        .grid-size-selector button:active {
+            opacity: 0.7;
+        }
+
+        /* --- Mobile tweaks --- */
+        @media (max-width: 480px) {
+            body {
+                padding: 12px;
+                padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .form-row {
+                flex-direction: column;
+                gap: 0;
+            }
         }
     </style>
 </head>
 <body>
     <h1>Pips Solver</h1>
+    <p class="subtitle">Solve the daily domino puzzle from the New York Times.</p>
 
-    <div class="import-section">
-        <h2>Import from NYT</h2>
-        <div class="import-controls">
-            <select id="difficulty-select">
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-            </select>
-            <input type="date" id="puzzle-date">
-            <button id="import-btn">Import &amp; Solve</button>
+    <details class="how-to-play">
+        <summary>How to Play Pips</summary>
+        <div class="how-to-play-content">
+            <p><strong>What is Pips?</strong> It's a daily puzzle where you fill a grid by placing dominoes. Each domino has two halves, and each half shows 0 to 6 dots (called "pips").</p>
+            <p><strong>The goal:</strong> Place all the given dominoes onto the grid so that every rule is satisfied. Rules might say things like "these cells must add up to 8" or "these cells must all be different."</p>
+            <p><strong>Reading the solution:</strong> In the solved grid below, cells that share the same color are the two halves of one domino. The number in each cell is how many pips are on that half.</p>
         </div>
-        <div id="import-status"></div>
+    </details>
+
+    <div class="main-action">
+        <h2>Solve Today's Puzzle</h2>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="difficulty-select">Difficulty</label>
+                <select id="difficulty-select">
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="puzzle-date">Puzzle Date</label>
+                <input type="date" id="puzzle-date">
+            </div>
+        </div>
+        <button class="btn btn-primary" id="import-btn">Solve Puzzle</button>
+        <div id="import-status" class="status-msg"></div>
         <div id="puzzle-info"></div>
     </div>
 
-    <div class="controls">
-        <label for="grid-size">Grid: <span id="grid-size-display">4×4</span></label>
-        <input type="range" id="grid-size" min="0" max="3" step="1" value="1">
-        <button id="solve-btn">Solve</button>
+    <div class="grid-wrapper">
+        <div id="solution-grid"></div>
+        <div id="grid-legend" class="legend" style="display:none;">Each color is one domino. The number is the pips on that half.</div>
     </div>
 
-    <div id="status"></div>
-    <div id="solution-grid"></div>
+    <details class="advanced-section">
+        <summary>Advanced: Solve Empty Grid</summary>
+        <div class="advanced-content">
+            <h3>Grid Size</h3>
+            <div class="grid-size-selector" id="grid-size-selector">
+                <button data-size="3">3&times;3</button>
+                <button data-size="4" class="active">4&times;4</button>
+                <button data-size="5">5&times;5</button>
+                <button data-size="6">6&times;6</button>
+            </div>
+            <button class="btn btn-secondary" id="solve-btn">Solve Empty Grid</button>
+            <div id="status" class="status-msg"></div>
+        </div>
+    </details>
 
     <script>
-        const gridSizeInput = document.getElementById('grid-size');
-        const gridSizeDisplay = document.getElementById('grid-size-display');
+        // --- Elements ---
         const solveBtn = document.getElementById('solve-btn');
         const solutionGrid = document.getElementById('solution-grid');
         const statusEl = document.getElementById('status');
+        const gridLegend = document.getElementById('grid-legend');
 
-        // Set default date to today
         const importDateInput = document.getElementById('puzzle-date');
         importDateInput.value = new Date().toISOString().slice(0, 10);
 
@@ -165,15 +395,33 @@
         const importStatus = document.getElementById('import-status');
         const puzzleInfo = document.getElementById('puzzle-info');
 
+        // --- Grid size segmented control ---
+        let selectedGridSize = 4;
+        const gridSizeButtons = document.querySelectorAll('#grid-size-selector button');
+
+        gridSizeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                gridSizeButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedGridSize = parseInt(btn.dataset.size, 10);
+                solutionGrid.innerHTML = '';
+                statusEl.textContent = '';
+                gridLegend.style.display = 'none';
+            });
+        });
+
+        // --- Import & Solve from NYT ---
         importBtn.addEventListener('click', async () => {
             const difficulty = document.getElementById('difficulty-select').value;
             const puzzleDate = importDateInput.value;
 
             importBtn.disabled = true;
-            importStatus.textContent = 'Fetching puzzle from NYT…';
+            importStatus.textContent = 'Fetching puzzle\u2026';
+            importStatus.className = 'status-msg loading';
             puzzleInfo.textContent = '';
             solutionGrid.innerHTML = '';
             statusEl.textContent = '';
+            gridLegend.style.display = 'none';
 
             try {
                 const fetchResp = await fetch(
@@ -182,14 +430,15 @@
                 const puzzle = await fetchResp.json();
 
                 if (puzzle.error) {
-                    importStatus.textContent = `Error: ${puzzle.error}`;
+                    importStatus.textContent = puzzle.error;
+                    importStatus.className = 'status-msg error';
                     return;
                 }
 
                 puzzleInfo.textContent =
-                    `Puzzle #${puzzle.puzzle_id} · ${puzzle.print_date} · ${difficulty} · ` +
+                    `Puzzle #${puzzle.puzzle_id} \u00b7 ${puzzle.print_date} \u00b7 ${difficulty} \u00b7 ` +
                     `${puzzle.domino_pool.length} domino${puzzle.domino_pool.length !== 1 ? 's' : ''}`;
-                importStatus.textContent = 'Solving…';
+                importStatus.textContent = 'Solving\u2026';
 
                 const solveResp = await fetch('/solve', {
                     method: 'POST',
@@ -204,80 +453,88 @@
                 const result = await solveResp.json();
 
                 if (result.error) {
-                    importStatus.textContent = `Solver error: ${result.error}`;
+                    importStatus.textContent = result.error;
+                    importStatus.className = 'status-msg error';
                 } else if (result.solved) {
                     importStatus.textContent = 'Solution found!';
+                    importStatus.className = 'status-msg success';
                     renderGrid(result.solution);
                 } else {
                     importStatus.textContent = 'No solution found.';
+                    importStatus.className = 'status-msg error';
                 }
             } catch (err) {
                 console.error(err);
-                importStatus.textContent = 'Network error.';
+                importStatus.textContent = 'Could not connect. Is the server running?';
+                importStatus.className = 'status-msg error';
             } finally {
                 importBtn.disabled = false;
             }
         });
 
-        const gridSizes = [3, 4, 5, 6];
+        // --- Solve empty grid ---
+        solveBtn.addEventListener('click', async () => {
+            solveBtn.disabled = true;
+            statusEl.textContent = 'Solving\u2026';
+            statusEl.className = 'status-msg loading';
+            solutionGrid.innerHTML = '';
+            gridLegend.style.display = 'none';
 
-        // 18 visually distinct pastel colours (enough for a 6×6 grid = 18 dominoes)
+            try {
+                const response = await fetch('/solve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ grid_size: selectedGridSize }),
+                });
+
+                const result = await response.json();
+
+                if (result.error) {
+                    statusEl.textContent = result.error;
+                    statusEl.className = 'status-msg error';
+                } else if (result.solved) {
+                    statusEl.textContent = 'Solution found!';
+                    statusEl.className = 'status-msg success';
+                    renderGrid(result.solution);
+                } else {
+                    statusEl.textContent = result.message || 'No solution found.';
+                    statusEl.className = 'status-msg error';
+                }
+            } catch (err) {
+                console.error(err);
+                statusEl.textContent = 'Could not connect. Is the server running?';
+                statusEl.className = 'status-msg error';
+            } finally {
+                solveBtn.disabled = false;
+            }
+        });
+
+        // --- 18 pastel colors for dominoes ---
         const COLORS = [
             '#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#E8BAFF',
             '#FFB3E6', '#C9FFE5', '#FFD9BA', '#B3F0FF', '#DEB3FF', '#B3FFD9',
             '#FFCCE5', '#CCF5FF', '#FFE5CC', '#CCF5E6', '#F5CCFF', '#CCFFE5',
         ];
 
-        gridSizeInput.addEventListener('input', () => {
-            const n = gridSizes[gridSizeInput.value];
-            gridSizeDisplay.textContent = `${n}×${n}`;
-            solutionGrid.innerHTML = '';
-            statusEl.textContent = '';
-        });
-
-        solveBtn.addEventListener('click', async () => {
-            const sizeIndex = parseInt(gridSizeInput.value, 10);
-            const gridSize = gridSizes[sizeIndex];
-
-            solveBtn.disabled = true;
-            statusEl.textContent = 'Solving…';
-            solutionGrid.innerHTML = '';
-
-            try {
-                const response = await fetch('/solve', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ grid_size: gridSize }),
-                });
-
-                const result = await response.json();
-
-                if (result.error) {
-                    statusEl.textContent = `Error: ${result.error}`;
-                } else if (result.solved) {
-                    statusEl.textContent = 'Solution found!';
-                    renderGrid(result.solution);
-                } else {
-                    statusEl.textContent = result.message || 'No solution found.';
-                }
-            } catch (err) {
-                console.error(err);
-                statusEl.textContent = 'Network error. Is the server running?';
-            } finally {
-                solveBtn.disabled = false;
-            }
-        });
-
         function renderGrid(solution) {
             const numRows = solution.length;
             const numCols = solution[0].length;
 
-            solutionGrid.style.gridTemplateColumns = `repeat(${numCols}, 60px)`;
+            // Calculate cell size to fit screen
+            const maxWidth = Math.min(document.body.clientWidth - 32, 570);
+            const borderSpace = 6 + numCols + 1; // outer border + inner borders
+            const cellSize = Math.max(36, Math.floor((maxWidth - borderSpace) / numCols));
+            const fontSize = Math.max(16, Math.floor(cellSize * 0.45));
+
+            solutionGrid.style.gridTemplateColumns = `repeat(${numCols}, ${cellSize}px)`;
 
             solution.forEach(row => {
                 row.forEach(cell => {
                     const div = document.createElement('div');
                     div.classList.add('cell');
+                    div.style.width = cellSize + 'px';
+                    div.style.height = cellSize + 'px';
+                    div.style.fontSize = fontSize + 'px';
 
                     if (cell) {
                         div.textContent = cell.value;
@@ -290,13 +547,14 @@
                             div.classList.add(cell.is_first ? 'v-first' : 'v-second');
                         }
                     } else {
-                        div.textContent = '?';
                         div.style.background = '#eee';
                     }
 
                     solutionGrid.appendChild(div);
                 });
             });
+
+            gridLegend.style.display = 'block';
         }
     </script>
 </body>
