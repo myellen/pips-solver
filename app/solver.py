@@ -62,11 +62,17 @@ class PipsConstraintChecker:
 
 
 class PipsSolver:
-    def __init__(self, grid_size: int, constraints: List[Constraint]):
+    def __init__(
+        self,
+        grid_size: int,
+        constraints: List[Constraint],
+        domino_pool: Optional[List[Domino]] = None,
+        active_cells: Optional[set] = None,
+    ):
         self.grid_size = grid_size
         self.constraints = constraints
-        self.domino_pool = self._generate_domino_pool()
-        # pip_grid[x][y] = pip value (0-6) or None
+        self.domino_pool = domino_pool if domino_pool is not None else self._generate_domino_pool()
+        # pip_grid[x][y] = pip value (0-6), -1 for inactive cells, or None for empty
         self.pip_grid: List[List[Union[int, None]]] = [
             [None] * grid_size for _ in range(grid_size)
         ]
@@ -75,6 +81,12 @@ class PipsSolver:
             [None] * grid_size for _ in range(grid_size)
         ]
         self.used = [False] * len(self.domino_pool)
+        # Pre-fill inactive (hole) cells so the solver skips them
+        if active_cells is not None:
+            for x in range(grid_size):
+                for y in range(grid_size):
+                    if (x, y) not in active_cells:
+                        self.pip_grid[x][y] = -1
 
     def _generate_domino_pool(self) -> List[Domino]:
         dominoes = []
@@ -149,7 +161,7 @@ class PipsSolver:
             for y in range(self.grid_size):
                 v = self.pip_grid[x][y]
                 p = self.placement_grid[x][y]
-                if v is None or p is None:
+                if v is None or v == -1 or p is None:
                     row.append(None)
                 else:
                     domino_idx, orientation, is_first = p

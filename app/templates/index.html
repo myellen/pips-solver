@@ -70,10 +70,76 @@
         .cell.h-second { border-left: none; }
         .cell.v-first  { border-bottom: none; }
         .cell.v-second { border-top: none; }
+
+        .import-section {
+            margin-bottom: 20px;
+            padding: 12px 16px;
+            background: #f5f5f5;
+            border-radius: 6px;
+        }
+
+        .import-section h2 {
+            margin: 0 0 10px;
+            font-size: 16px;
+        }
+
+        .import-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .import-controls select,
+        .import-controls input[type="date"] {
+            padding: 6px 8px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        #import-btn {
+            padding: 6px 16px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        #import-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #import-status {
+            margin-top: 6px;
+            font-size: 13px;
+            color: #555;
+            min-height: 1.3em;
+        }
+
+        #puzzle-info {
+            margin-top: 6px;
+            font-size: 13px;
+            color: #333;
+        }
     </style>
 </head>
 <body>
     <h1>Pips Solver</h1>
+
+    <div class="import-section">
+        <h2>Import from NYT</h2>
+        <div class="import-controls">
+            <select id="difficulty-select">
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+            <input type="date" id="puzzle-date">
+            <button id="import-btn">Import &amp; Solve</button>
+        </div>
+        <div id="import-status"></div>
+        <div id="puzzle-info"></div>
+    </div>
 
     <div class="controls">
         <label for="grid-size">Grid: <span id="grid-size-display">4×4</span></label>
@@ -90,6 +156,68 @@
         const solveBtn = document.getElementById('solve-btn');
         const solutionGrid = document.getElementById('solution-grid');
         const statusEl = document.getElementById('status');
+
+        // Set default date to today
+        const importDateInput = document.getElementById('puzzle-date');
+        importDateInput.value = new Date().toISOString().slice(0, 10);
+
+        const importBtn = document.getElementById('import-btn');
+        const importStatus = document.getElementById('import-status');
+        const puzzleInfo = document.getElementById('puzzle-info');
+
+        importBtn.addEventListener('click', async () => {
+            const difficulty = document.getElementById('difficulty-select').value;
+            const puzzleDate = importDateInput.value;
+
+            importBtn.disabled = true;
+            importStatus.textContent = 'Fetching puzzle from NYT…';
+            puzzleInfo.textContent = '';
+            solutionGrid.innerHTML = '';
+            statusEl.textContent = '';
+
+            try {
+                const fetchResp = await fetch(
+                    `/fetch-nyt?difficulty=${difficulty}&date=${puzzleDate}`
+                );
+                const puzzle = await fetchResp.json();
+
+                if (puzzle.error) {
+                    importStatus.textContent = `Error: ${puzzle.error}`;
+                    return;
+                }
+
+                puzzleInfo.textContent =
+                    `Puzzle #${puzzle.puzzle_id} · ${puzzle.print_date} · ${difficulty} · ` +
+                    `${puzzle.domino_pool.length} domino${puzzle.domino_pool.length !== 1 ? 's' : ''}`;
+                importStatus.textContent = 'Solving…';
+
+                const solveResp = await fetch('/solve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        grid_size: puzzle.grid_size,
+                        constraints: puzzle.constraints,
+                        domino_pool: puzzle.domino_pool,
+                        active_cells: puzzle.active_cells,
+                    }),
+                });
+                const result = await solveResp.json();
+
+                if (result.error) {
+                    importStatus.textContent = `Solver error: ${result.error}`;
+                } else if (result.solved) {
+                    importStatus.textContent = 'Solution found!';
+                    renderGrid(result.solution);
+                } else {
+                    importStatus.textContent = 'No solution found.';
+                }
+            } catch (err) {
+                console.error(err);
+                importStatus.textContent = 'Network error.';
+            } finally {
+                importBtn.disabled = false;
+            }
+        });
 
         const gridSizes = [3, 4, 5, 6];
 
