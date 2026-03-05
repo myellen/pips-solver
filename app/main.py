@@ -10,13 +10,14 @@ app = Flask(__name__)
 
 VALID_GRID_SIZES = {3, 4, 5, 6}
 
-# Maps NYT constraint type strings to our ConstraintType enum names
+# Maps NYT constraint type strings to our ConstraintType enum names.
+# Types not listed here (e.g. "empty") have no constraint and are skipped.
 NYT_CONSTRAINT_TYPE_MAP = {
     'sum': 'SUM',
-    'equal': 'EQUAL',
-    'not_equal': 'NOT_EQUAL',
-    'greater_than': 'GREATER_THAN',
-    'less_than': 'LESS_THAN',
+    'equals': 'EQUAL',
+    'unequal': 'NOT_EQUAL',
+    'greater': 'GREATER_THAN',
+    'less': 'LESS_THAN',
     'blank': 'BLANK',
 }
 
