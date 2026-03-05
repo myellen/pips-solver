@@ -1,7 +1,6 @@
 from enum import Enum, auto
 from typing import List, Tuple, Union, Optional
-import copy
-import random
+
 
 class ConstraintType(Enum):
     EQUAL = auto()
@@ -11,179 +10,169 @@ class ConstraintType(Enum):
     SUM = auto()
     BLANK = auto()
 
+
 class Domino:
-    def __init__(self, left_dots: int, right_dots: int):
-        self.left = left_dots
-        self.right = right_dots
-        self.orientation = 'horizontal'
-    
+    def __init__(self, left: int, right: int):
+        self.left = left
+        self.right = right
+
     def __repr__(self):
         return f"Domino({self.left}|{self.right})"
-    
-    def rotate(self):
-        self.left, self.right = self.right, self.left
-        self.orientation = 'vertical' if self.orientation == 'horizontal' else 'horizontal'
+
 
 class Constraint:
     def __init__(
-        self, 
-        constraint_type: ConstraintType, 
-        value: Union[int, None] = None, 
+        self,
+        constraint_type: ConstraintType,
+        value: Union[int, None] = None,
         region: List[Tuple[int, int]] = None
     ):
         self.type = constraint_type
         self.value = value
         self.region = region or []
 
+
 class PipsConstraintChecker:
     @staticmethod
     def check_constraint(
-        constraint: Constraint, 
-        grid: List[List[Union[Domino, None]]]
+        constraint: Constraint,
+        pip_grid: List[List[Union[int, None]]]
     ) -> bool:
-        if not PipsConstraintChecker._is_region_complete(constraint.region, grid):
+        # Only evaluate once the region is fully filled
+        if not all(pip_grid[x][y] is not None for x, y in constraint.region):
             return True
-        
-        region_values = PipsConstraintChecker._get_region_values(constraint.region, grid)
-        return PipsConstraintChecker._apply_constraint_logic(constraint, region_values)
-    
-    @staticmethod
-    def _is_region_complete(
-        region: List[Tuple[int, int]], 
-        grid: List[List[Union[Domino, None]]]
-    ) -> bool:
-        return all(grid[x][y] is not None for x, y in region)
-    
-    @staticmethod
-    def _get_region_values(
-        region: List[Tuple[int, int]], 
-        grid: List[List[Union[Domino, None]]]
-    ) -> List[int]:
-        values = []
-        for x, y in region:
-            domino = grid[x][y]
-            values.extend([domino.left, domino.right])
-        return values
-    
-    @staticmethod
-    def _apply_constraint_logic(
-        constraint: Constraint, 
-        values: List[int]
-    ) -> bool:
+
+        values = [pip_grid[x][y] for x, y in constraint.region]
+
         match constraint.type:
             case ConstraintType.EQUAL:
                 return len(set(values)) == 1
             case ConstraintType.NOT_EQUAL:
                 return len(set(values)) == len(values)
             case ConstraintType.GREATER_THAN:
-                return all(val > constraint.value for val in values)
+                return all(v > constraint.value for v in values)
             case ConstraintType.LESS_THAN:
-                return all(val < constraint.value for val in values)
+                return all(v < constraint.value for v in values)
             case ConstraintType.SUM:
                 return sum(values) == constraint.value
             case ConstraintType.BLANK:
-                return True
+                return all(v == 0 for v in values)
             case _:
                 raise ValueError(f"Unsupported constraint type: {constraint.type}")
 
+
 class PipsSolver:
     def __init__(
-        self, 
-        grid_size: int, 
-        constraints: List[Constraint]
+        self,
+        grid_size: int,
+        constraints: List[Constraint],
+        domino_pool: Optional[List[Domino]] = None,
+        active_cells: Optional[set] = None,
     ):
         self.grid_size = grid_size
-        self.grid = [[None for _ in range(grid_size)] for _ in range(grid_size)]
         self.constraints = constraints
-        self.domino_pool = self._generate_domino_pool()
-    
+        self.domino_pool = domino_pool if domino_pool is not None else self._generate_domino_pool()
+        # pip_grid[x][y] = pip value (0-6), -1 for inactive cells, or None for empty
+        self.pip_grid: List[List[Union[int, None]]] = [
+            [None] * grid_size for _ in range(grid_size)
+        ]
+        # placement_grid[x][y] = (domino_idx, orientation, is_first) or None
+        self.placement_grid: List[List[Union[tuple, None]]] = [
+            [None] * grid_size for _ in range(grid_size)
+        ]
+        self.used = [False] * len(self.domino_pool)
+        # Pre-fill inactive (hole) cells so the solver skips them
+        if active_cells is not None:
+            for x in range(grid_size):
+                for y in range(grid_size):
+                    if (x, y) not in active_cells:
+                        self.pip_grid[x][y] = -1
+
     def _generate_domino_pool(self) -> List[Domino]:
         dominoes = []
         for left in range(7):
             for right in range(left, 7):
                 dominoes.append(Domino(left, right))
-                if left != right:
-                    dominoes.append(Domino(right, left))
         return dominoes
-    
-    def solve(self) -> Optional[List[List[Domino]]]:
-        solution = self._backtrack()
-        return solution
-    
-    def _backtrack(
-        self, 
-        domino_index: int = 0, 
-        placed_dominoes: int = 0
-    ) -> Optional[List[List[Domino]]]:
-        if placed_dominoes == (self.grid_size * self.grid_size) // 2:
-            return copy.deepcopy(self.grid)
-        
-        for i in range(domino_index, len(self.domino_pool)):
-            domino = self.domino_pool[i]
-            
-            for orientation in ['horizontal', 'vertical']:
-                domino.orientation = orientation
-                
-                for x in range(self.grid_size):
-                    for y in range(self.grid_size):
-                        if self._is_valid_placement(domino, (x, y)):
-                            self.grid[x][y] = domino
-                            
-                            adjacent_x = x + 1 if orientation == 'horizontal' else x
-                            adjacent_y = y + 1 if orientation == 'vertical' else y
-                            
-                            if (0 <= adjacent_x < self.grid_size and 
-                                0 <= adjacent_y < self.grid_size and 
-                                self._is_valid_placement(domino, (adjacent_x, adjacent_y))):
-                                
-                                self.grid[adjacent_x][adjacent_y] = domino
-                                
-                                result = self._backtrack(
-                                    domino_index + 1, 
-                                    placed_dominoes + 1
-                                )
-                                
-                                if result:
-                                    return result
-                                
-                                self.grid[adjacent_x][adjacent_y] = None
-                            
-                            self.grid[x][y] = None
-        
+
+    def _first_empty(self) -> Optional[Tuple[int, int]]:
+        for x in range(self.grid_size):
+            for y in range(self.grid_size):
+                if self.pip_grid[x][y] is None:
+                    return (x, y)
         return None
-    
-    def _is_valid_placement(
-        self, 
-        domino: Domino, 
-        position: Tuple[int, int]
-    ) -> bool:
-        x, y = position
-        
-        if x >= self.grid_size or y >= self.grid_size:
-            return False
-        
-        if self.grid[x][y] is not None:
-            return False
-        
-        for constraint in self.constraints:
-            if not PipsConstraintChecker.check_constraint(constraint, self.grid):
+
+    def _constraints_ok(self) -> bool:
+        for c in self.constraints:
+            if not PipsConstraintChecker.check_constraint(c, self.pip_grid):
                 return False
-        
         return True
-    
-    def get_solution_as_list(self):
-        """Convert solution to a list of lists for JSON serialization"""
-        if not self.grid:
-            return None
-        
-        return [
-            [
-                {
-                    'left': domino.left,
-                    'right': domino.right,
-                    'orientation': domino.orientation
-                } if domino else None 
-                for domino in row
-            ] 
-            for row in self.grid
-        ]
+
+    def _backtrack(self) -> bool:
+        cell = self._first_empty()
+        if cell is None:
+            return True  # all cells filled
+
+        x, y = cell
+
+        for i, domino in enumerate(self.domino_pool):
+            if self.used[i]:
+                continue
+
+            # Try placing the domino horizontally (right) or vertically (down)
+            for dx, dy, orientation in [(0, 1, 'horizontal'), (1, 0, 'vertical')]:
+                x2, y2 = x + dx, y + dy
+
+                if not (0 <= x2 < self.grid_size and 0 <= y2 < self.grid_size):
+                    continue
+                if self.pip_grid[x2][y2] is not None:
+                    continue
+
+                # Try both value orderings (left→right and right→left)
+                orderings = [(domino.left, domino.right)]
+                if domino.left != domino.right:
+                    orderings.append((domino.right, domino.left))
+
+                for v1, v2 in orderings:
+                    self.pip_grid[x][y] = v1
+                    self.pip_grid[x2][y2] = v2
+                    self.placement_grid[x][y] = (i, orientation, True)
+                    self.placement_grid[x2][y2] = (i, orientation, False)
+                    self.used[i] = True
+
+                    if self._constraints_ok() and self._backtrack():
+                        return True
+
+                    self.pip_grid[x][y] = None
+                    self.pip_grid[x2][y2] = None
+                    self.placement_grid[x][y] = None
+                    self.placement_grid[x2][y2] = None
+                    self.used[i] = False
+
+        return False
+
+    def solve(self) -> bool:
+        return self._backtrack()
+
+    def get_solution_as_list(self) -> Optional[List[List[dict]]]:
+        result = []
+        for x in range(self.grid_size):
+            row = []
+            for y in range(self.grid_size):
+                v = self.pip_grid[x][y]
+                p = self.placement_grid[x][y]
+                if v is None or v == -1 or p is None:
+                    row.append(None)
+                else:
+                    domino_idx, orientation, is_first = p
+                    d = self.domino_pool[domino_idx]
+                    row.append({
+                        'value': v,
+                        'left': d.left,
+                        'right': d.right,
+                        'domino_idx': domino_idx,
+                        'orientation': orientation,
+                        'is_first': is_first,
+                    })
+            result.append(row)
+        return result
