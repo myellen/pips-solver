@@ -102,8 +102,6 @@ class PipsSolver:
         for left in range(7):
             for right in range(left, 7):
                 dominoes.append(Domino(left, right))
-                if left != right:
-                    dominoes.append(Domino(right, left))
         return dominoes
     
     def solve(self) -> Optional[List[List[Domino]]]:
@@ -129,8 +127,8 @@ class PipsSolver:
                         if self._is_valid_placement(domino, (x, y)):
                             self.grid[x][y] = domino
                             
-                            adjacent_x = x + 1 if orientation == 'horizontal' else x
-                            adjacent_y = y + 1 if orientation == 'vertical' else y
+                            adjacent_x = x + 1 if orientation == 'vertical' else x
+                            adjacent_y = y + 1 if orientation == 'horizontal' else y
                             
                             if (0 <= adjacent_x < self.grid_size and 
                                 0 <= adjacent_y < self.grid_size and 
@@ -139,7 +137,7 @@ class PipsSolver:
                                 self.grid[adjacent_x][adjacent_y] = domino
                                 
                                 result = self._backtrack(
-                                    domino_index + 1, 
+                                    i + 1,
                                     placed_dominoes + 1
                                 )
                                 
