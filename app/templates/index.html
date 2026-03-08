@@ -204,6 +204,7 @@
             display: inline-grid;
             margin-top: 16px;
             gap: 3px;
+            position: relative;
         }
 
         .cell.inactive {
@@ -215,6 +216,7 @@
             justify-content: center;
             flex-direction: column;
             align-items: center;
+            padding: 14px;
         }
 
         .cell {
@@ -227,6 +229,10 @@
             position: relative;
         }
 
+        .cell:not(.inactive) {
+            box-shadow: 0 2px 5px rgba(0,0,0,0.18);
+        }
+
         /* Flatten the inner edges of a revealed domino pair */
         .cell.h-first  { border-top-right-radius: 3px; border-bottom-right-radius: 3px; }
         .cell.h-second { border-top-left-radius: 3px;  border-bottom-left-radius: 3px;  }
@@ -234,7 +240,9 @@
         .cell.v-second { border-top-left-radius: 3px;    border-top-right-radius: 3px;   }
 
         .cell.unrevealed {
-            background: #e8e8e8;
+            background: #C8CDD5;
+            outline: 2px dashed rgba(0,0,0,0.2);
+            outline-offset: -3px;
         }
 
         /* Constraint label overlay in cells */
@@ -260,19 +268,43 @@
             animation: revealFlash 0.6s ease-out;
         }
 
-        /* Region tint colors (very pale) */
-        .region-tint-0 { background: #fff3e0; }
-        .region-tint-1 { background: #e8f5e9; }
-        .region-tint-2 { background: #e3f2fd; }
-        .region-tint-3 { background: #fce4ec; }
-        .region-tint-4 { background: #f3e5f5; }
-        .region-tint-5 { background: #e0f7fa; }
-        .region-tint-6 { background: #fff8e1; }
-        .region-tint-7 { background: #f1f8e9; }
-        .region-tint-8 { background: #ede7f6; }
-        .region-tint-9 { background: #e8eaf6; }
-        .region-tint-10 { background: #fbe9e7; }
-        .region-tint-11 { background: #efebe9; }
+        /* Region tint colors */
+        .region-tint-0  { background: #F8C471; }
+        .region-tint-1  { background: #82E0AA; }
+        .region-tint-2  { background: #85C1E9; }
+        .region-tint-3  { background: #F1948A; }
+        .region-tint-4  { background: #C39BD3; }
+        .region-tint-5  { background: #76D7C4; }
+        .region-tint-6  { background: #F9E79F; }
+        .region-tint-7  { background: #ABEBC6; }
+        .region-tint-8  { background: #D2B4DE; }
+        .region-tint-9  { background: #A9CCE3; }
+        .region-tint-10 { background: #FAD7A0; }
+        .region-tint-11 { background: #A8B2BD; }
+
+        /* Constraint badge (diamond shape) */
+        .constraint-badge {
+            position: absolute;
+            width: 26px;
+            height: 26px;
+            transform: rotate(45deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+            pointer-events: none;
+            border-radius: 4px;
+        }
+
+        .constraint-badge span {
+            transform: rotate(-45deg);
+            font-size: 10px;
+            font-weight: 800;
+            color: #fff;
+            white-space: nowrap;
+            line-height: 1;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
 
         .legend {
             margin-top: 12px;
@@ -885,29 +917,39 @@
 
             solutionGrid.style.gridTemplateColumns = `repeat(${gridSize}, ${lessonCellSize}px)`;
 
-            // Build cell-to-constraint-region mapping for labels and tints
+            // Build cell-to-constraint-region mapping for tints
             const cellToRegion = {}; // "x,y" -> region index
-            const cellIsFirstInRegion = {}; // "x,y" -> true if first cell in region
-            const regionLabels = {}; // region index -> label string
+            // Badge colors matching the 12 region tints
+            const BADGE_COLORS = [
+                '#D68910', '#1E8449', '#1A5276', '#CB4335', '#7D3C98',
+                '#0E6655', '#B7950B', '#1D8348', '#6C3483', '#154360',
+                '#A04000', '#566573',
+            ];
+
+            // Compact badge label from full constraint description
+            function badgeLabel(label) {
+                if (label === 'BLANK')        return '0';
+                if (label === 'EQUAL')        return '=';
+                if (label === 'ALL DIFFERENT') return '≠';
+                if (label.startsWith('SUM ')) return label.slice(4);
+                return label.replace(' ', ''); // "> 3" → ">3"
+            }
+
+            // Track top-left cell of each region for badge placement
+            const regionFirstCell = {}; // region idx -> {row, col}
 
             if (constraintsDisplay) {
                 constraintsDisplay.forEach((c, idx) => {
-                    regionLabels[idx] = c.label;
-                    // Find the top-left cell of this region (for label placement)
-                    let firstKey = null;
-                    let firstRow = Infinity;
-                    let firstCol = Infinity;
+                    let firstRow = Infinity, firstCol = Infinity;
                     c.region.forEach(cell => {
-                        const key = `${cell[0]},${cell[1]}`;
-                        cellToRegion[key] = idx;
+                        cellToRegion[`${cell[0]},${cell[1]}`] = idx;
                         if (cell[0] < firstRow || (cell[0] === firstRow && cell[1] < firstCol)) {
                             firstRow = cell[0];
                             firstCol = cell[1];
-                            firstKey = key;
                         }
                     });
-                    if (firstKey) {
-                        cellIsFirstInRegion[firstKey] = idx;
+                    if (firstRow !== Infinity) {
+                        regionFirstCell[idx] = { row: firstRow, col: firstCol, label: c.label };
                     }
                 });
             }
@@ -927,28 +969,37 @@
                         div.classList.add('inactive');
                     } else {
                         div.classList.add('unrevealed');
-                        // Add region tint
                         const regionIdx = cellToRegion[key];
                         if (regionIdx !== undefined) {
                             div.classList.add(`region-tint-${regionIdx % 12}`);
-                        }
-                        // Add constraint label on the first cell of each region
-                        if (cellIsFirstInRegion[key] !== undefined) {
-                            const label = document.createElement('span');
-                            label.classList.add('constraint-label');
-                            label.textContent = regionLabels[cellIsFirstInRegion[key]];
-                            div.appendChild(label);
                         }
                     }
 
                     solutionGrid.appendChild(div);
                 }
             }
+
+            // Place diamond badges for each constraint region
+            const gap = 3;
+            const badgeSize = 26;
+            Object.entries(regionFirstCell).forEach(([idx, { row, col, label }]) => {
+                const badge = document.createElement('div');
+                badge.classList.add('constraint-badge');
+                badge.style.background = BADGE_COLORS[idx % BADGE_COLORS.length];
+                // Position badge straddling the top-left corner of the first cell
+                const left = col * (lessonCellSize + gap) - badgeSize / 2;
+                const top  = row * (lessonCellSize + gap) - badgeSize / 2;
+                badge.style.left = left + 'px';
+                badge.style.top  = top  + 'px';
+                const span = document.createElement('span');
+                span.textContent = badgeLabel(label);
+                badge.appendChild(span);
+                solutionGrid.appendChild(badge);
+            });
         }
 
         function getCellElement(row, col) {
-            const idx = row * lessonNumCols + col;
-            return solutionGrid.children[idx];
+            return solutionGrid.querySelector(`[data-row="${row}"][data-col="${col}"]`);
         }
 
         function startLesson() {
@@ -1008,8 +1059,9 @@
                 const label = el.querySelector('.constraint-label');
                 if (label) label.remove();
 
-                // Remove unrevealed and region tint
+                // Remove unrevealed state and region tint
                 el.classList.remove('unrevealed');
+                el.style.outline = '';
                 for (let t = 0; t < 12; t++) {
                     el.classList.remove(`region-tint-${t}`);
                 }
