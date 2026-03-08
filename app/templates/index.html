@@ -1081,9 +1081,9 @@
                     el.classList.remove(`region-tint-${t}`);
                 }
 
-                el.textContent = step.values[i];
+                el.innerHTML = '';
+                el.appendChild(makePipSVG(step.values[i], Math.floor(lessonCellSize * 0.78)));
                 el.style.background = COLORS[step.domino_idx % COLORS.length];
-                el.style.fontSize = lessonFontSize + 'px';
 
                 // Apply domino border classes
                 if (step.orientation === 'horizontal') {
