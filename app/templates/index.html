@@ -203,11 +203,11 @@
         #solution-grid {
             display: inline-grid;
             margin-top: 16px;
+            gap: 3px;
         }
 
         .cell.inactive {
             background: transparent !important;
-            border-color: transparent !important;
         }
 
         .grid-wrapper {
@@ -222,18 +222,19 @@
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            border: 1px solid #888;
+            border-radius: 8px;
             box-sizing: border-box;
             position: relative;
         }
 
-        .cell.h-first  { border-right: none; }
-        .cell.h-second { border-left: none; }
-        .cell.v-first  { border-bottom: none; }
-        .cell.v-second { border-top: none; }
+        /* Flatten the inner edges of a revealed domino pair */
+        .cell.h-first  { border-top-right-radius: 3px; border-bottom-right-radius: 3px; }
+        .cell.h-second { border-top-left-radius: 3px;  border-bottom-left-radius: 3px;  }
+        .cell.v-first  { border-bottom-left-radius: 3px; border-bottom-right-radius: 3px; }
+        .cell.v-second { border-top-left-radius: 3px;    border-top-right-radius: 3px;   }
 
         .cell.unrevealed {
-            background: #f8f8f8;
+            background: #e8e8e8;
         }
 
         /* Constraint label overlay in cells */
@@ -835,8 +836,7 @@
             const numCols = solution[0].length;
 
             const maxWidth = Math.min(document.body.clientWidth - 32, 570);
-            const borderSpace = 6 + numCols + 1;
-            const cellSize = Math.max(36, Math.floor((maxWidth - borderSpace) / numCols));
+            const cellSize = Math.max(36, Math.floor((maxWidth - (numCols - 1) * 3) / numCols));
             const fontSize = Math.max(16, Math.floor(cellSize * 0.45));
 
             solutionGrid.style.gridTemplateColumns = `repeat(${numCols}, ${cellSize}px)`;
@@ -880,8 +880,7 @@
             lessonNumCols = gridSize;
 
             const maxWidth = Math.min(document.body.clientWidth - 32, 570);
-            const borderSpace = 6 + gridSize + 1;
-            lessonCellSize = Math.max(36, Math.floor((maxWidth - borderSpace) / gridSize));
+            lessonCellSize = Math.max(36, Math.floor((maxWidth - (gridSize - 1) * 3) / gridSize));
             lessonFontSize = Math.max(16, Math.floor(lessonCellSize * 0.45));
 
             solutionGrid.style.gridTemplateColumns = `repeat(${gridSize}, ${lessonCellSize}px)`;
