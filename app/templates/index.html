@@ -647,6 +647,7 @@
         let currentStep = 0;
         let stepState = 'READY'; // 'READY' | 'HINT_SHOWN' | 'REVEALED'
         let fullSolution = null;
+        let dominoColorMap = {};
         let lessonGridSize = 0;
         let lessonNumCols = 0;
         let lessonCellSize = 0;
@@ -733,6 +734,7 @@
                     importStatus.className = 'status-msg success';
 
                     fullSolution = result.solution;
+                    dominoColorMap = buildDominoColorMap(fullSolution);
                     hintSteps = result.hints;
 
                     // Build active cells set for rendering
@@ -798,12 +800,61 @@
             }
         });
 
-        // --- 18 pastel colors for dominoes ---
+        // --- 18 pastel colors for dominoes (fallback) ---
         const COLORS = [
             '#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#E8BAFF',
             '#FFB3E6', '#C9FFE5', '#FFD9BA', '#B3F0FF', '#DEB3FF', '#B3FFD9',
             '#FFCCE5', '#CCF5FF', '#FFE5CC', '#CCF5E6', '#F5CCFF', '#CCFFE5',
         ];
+
+        // Fixed palette for graph coloring: purple, pink, teal, orange, blue, green
+        const GRAPH_PALETTE = ['#c39bd3', '#f1948a', '#76d7c4', '#f0b27a', '#85c1e9', '#82e0aa'];
+
+        // Build a domino color map using greedy graph coloring on the domino adjacency graph.
+        // Returns an object mapping domino_idx -> hex color string.
+        function buildDominoColorMap(solution) {
+            const numRows = solution.length;
+            const numCols = solution[0].length;
+            const adj = {};
+
+            for (let x = 0; x < numRows; x++) {
+                for (let y = 0; y < numCols; y++) {
+                    const cell = solution[x][y];
+                    if (!cell) continue;
+                    const di = cell.domino_idx;
+                    if (!(di in adj)) adj[di] = new Set();
+                    for (const [dx, dy] of [[0, 1], [1, 0]]) {
+                        const nx = x + dx, ny = y + dy;
+                        if (nx < numRows && ny < numCols) {
+                            const nb = solution[nx][ny];
+                            if (nb && nb.domino_idx !== di) {
+                                const ndi = nb.domino_idx;
+                                if (!(ndi in adj)) adj[ndi] = new Set();
+                                adj[di].add(ndi);
+                                adj[ndi].add(di);
+                            }
+                        }
+                    }
+                }
+            }
+
+            const colorAssignment = {};
+            for (const di of Object.keys(adj).map(Number).sort((a, b) => a - b)) {
+                const used = new Set();
+                for (const nb of adj[di]) {
+                    if (colorAssignment[nb] !== undefined) used.add(colorAssignment[nb]);
+                }
+                let c = 0;
+                while (used.has(c)) c++;
+                colorAssignment[di] = c;
+            }
+
+            const colorMap = {};
+            for (const di of Object.keys(colorAssignment).map(Number)) {
+                colorMap[di] = GRAPH_PALETTE[colorAssignment[di] % GRAPH_PALETTE.length];
+            }
+            return colorMap;
+        }
 
         // --- Domino tray ---
         // Each entry is an array of [cx, cy] percentages within a 100×100 SVG viewBox.
@@ -881,6 +932,7 @@
 
         // --- Render the full solved grid (for advanced / empty grid solve) ---
         function renderGrid(solution) {
+            dominoColorMap = buildDominoColorMap(solution);
             const numRows = solution.length;
             const numCols = solution[0].length;
 
@@ -900,7 +952,7 @@
 
                     if (cell) {
                         div.textContent = cell.value;
-                        div.style.background = COLORS[cell.domino_idx % COLORS.length];
+                        div.style.background = dominoColorMap[cell.domino_idx] ?? COLORS[cell.domino_idx % COLORS.length];
                         div.title = `Domino ${cell.left}|${cell.right}`;
 
                         if (cell.orientation === 'horizontal') {
@@ -1159,7 +1211,7 @@
                 const step = hintSteps[currentStep];
                 hintText.textContent = step.hint;
                 explanationText.style.display = 'none';
-                highlightRegion(step.constraint_region, COLORS[step.domino_idx % COLORS.length]);
+                highlightRegion(step.constraint_region, dominoColorMap[step.domino_idx] ?? COLORS[step.domino_idx % COLORS.length]);
                 stepState = 'HINT_SHOWN';
                 hintActionBtn.textContent = 'Reveal Answer';
             } else if (stepState === 'HINT_SHOWN') {
