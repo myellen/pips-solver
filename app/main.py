@@ -1,4 +1,5 @@
 import json as json_module
+import ssl
 import urllib.error
 import urllib.request
 from datetime import date
@@ -39,7 +40,10 @@ def fetch_nyt_puzzle():
     url = f'https://www.nytimes.com/svc/pips/v1/{puzzle_date}.json'
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
             nyt_data = json_module.loads(resp.read())
     except urllib.error.HTTPError as e:
         return jsonify({'error': f'NYT API returned {e.code} for date {puzzle_date}'}), 502
