@@ -379,6 +379,16 @@
             padding: 14px 10px;
         }
 
+        .hint-controls-nav {
+            margin-top: 6px;
+        }
+
+        .hint-controls-nav .btn {
+            flex: 1;
+            font-size: 15px;
+            padding: 11px 10px;
+        }
+
         #step-counter {
             text-align: center;
             margin-top: 8px;
@@ -581,6 +591,10 @@
         <div class="hint-controls">
             <button class="btn btn-primary" id="hint-action-btn">Show Hint</button>
             <button class="btn btn-secondary" id="show-solution-btn">Show All</button>
+        </div>
+        <div class="hint-controls hint-controls-nav">
+            <button class="btn btn-secondary" id="hint-back-btn" disabled>← Back</button>
+            <button class="btn btn-secondary" id="reset-lesson-btn">↺ Reset</button>
         </div>
         <div class="hint-card" id="hint-card">
             <div class="hint-text" id="hint-text">Tap "Show Hint" to begin learning step by step.</div>
@@ -849,6 +863,12 @@
             updateTrayLabel();
         }
 
+        function unmarkDominoUsed(dominoIdx) {
+            const tile = document.querySelector(`.domino-tile[data-idx="${dominoIdx}"]`);
+            if (tile) tile.classList.remove('used');
+            updateTrayLabel();
+        }
+
         function updateTrayLabel() {
             const total = lessonDominoPool.length;
             const used = document.querySelectorAll('.domino-tile.used').length;
@@ -1061,6 +1081,7 @@
             hintActionBtn.disabled = false;
             showSolutionBtn.style.display = '';
             updateProgress();
+            updateBackBtn();
 
             lessonSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
@@ -1076,6 +1097,12 @@
                     stepCounter.textContent = `All ${total} steps complete!`;
                 }
             }
+        }
+
+        function updateBackBtn() {
+            const backBtn = document.getElementById('hint-back-btn');
+            if (!backBtn) return;
+            backBtn.disabled = (currentStep === 0 && stepState === 'READY');
         }
 
         function highlightRegion(regionCells) {
@@ -1145,6 +1172,7 @@
                 updateProgress();
             }
 
+            updateBackBtn();
             hintCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         });
 
@@ -1163,6 +1191,63 @@
             hintActionBtn.disabled = true;
             showSolutionBtn.style.display = 'none';
             updateProgress();
+            updateBackBtn();
+        });
+
+        // --- Go back one step ---
+        document.getElementById('hint-back-btn').addEventListener('click', () => {
+            if (!lessonActive) return;
+            clearRegionHighlight();
+            explanationText.style.display = 'none';
+
+            if (stepState === 'HINT_SHOWN') {
+                // Just undo showing the hint text — go back to READY
+                stepState = 'READY';
+                hintText.textContent = currentStep === 0
+                    ? 'Tap "Show Hint" to begin learning step by step.'
+                    : 'Tap "Show Hint" to see the next clue.';
+                hintActionBtn.textContent = 'Show Hint';
+                hintActionBtn.disabled = false;
+            } else {
+                // From READY or REVEALED: undo the last placed domino
+                // In both states, last revealed domino is at index currentStep - 1
+                const targetStep = currentStep - 1;
+                if (targetStep < 0) return;
+                const step = hintSteps[targetStep];
+                const dom = solutionGrid.querySelector(
+                    `.domino-overlay[data-domino-idx="${step.domino_idx}"]`
+                );
+                if (dom) dom.style.opacity = '0';
+                unmarkDominoUsed(step.domino_idx);
+                currentStep = targetStep;
+                stepState = 'READY';
+                hintText.textContent = 'Tap "Show Hint" to see the next clue.';
+                hintActionBtn.textContent = 'Show Hint';
+                hintActionBtn.disabled = false;
+                showSolutionBtn.style.display = '';
+                updateProgress();
+            }
+            updateBackBtn();
+        });
+
+        // --- Reset lesson ---
+        document.getElementById('reset-lesson-btn').addEventListener('click', () => {
+            if (!lessonActive) return;
+            solutionGrid.querySelectorAll('.domino-overlay')
+                .forEach(el => el.style.opacity = '0');
+            document.querySelectorAll('.domino-tile.used')
+                .forEach(el => el.classList.remove('used'));
+            updateTrayLabel();
+            clearRegionHighlight();
+            currentStep = 0;
+            stepState = 'READY';
+            hintText.textContent = 'Tap "Show Hint" to begin learning step by step.';
+            explanationText.style.display = 'none';
+            hintActionBtn.textContent = 'Show Hint';
+            hintActionBtn.disabled = false;
+            showSolutionBtn.style.display = '';
+            updateProgress();
+            updateBackBtn();
         });
     </script>
 </body>
