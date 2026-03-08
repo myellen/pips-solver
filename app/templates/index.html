@@ -202,8 +202,13 @@
         /* --- Solution grid --- */
         #solution-grid {
             display: inline-grid;
-            border: 3px solid #222;
             margin-top: 16px;
+            gap: 3px;
+            position: relative;
+        }
+
+        .cell.inactive {
+            background: transparent !important;
         }
 
         .grid-wrapper {
@@ -211,6 +216,7 @@
             justify-content: center;
             flex-direction: column;
             align-items: center;
+            padding: 14px;
         }
 
         .cell {
@@ -218,56 +224,91 @@
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            border: 1px solid #888;
+            border-radius: 8px;
             box-sizing: border-box;
             position: relative;
         }
 
-        .cell.h-first  { border-right: none; }
-        .cell.h-second { border-left: none; }
-        .cell.v-first  { border-bottom: none; }
-        .cell.v-second { border-top: none; }
-
-        .cell.unrevealed {
-            background: #f8f8f8;
+        .cell:not(.inactive) {
+            box-shadow: 0 2px 5px rgba(0,0,0,0.18);
         }
 
-        /* Constraint label overlay in cells */
-        .constraint-label {
+        /* Flatten the inner edges of a revealed domino pair */
+        .cell.h-first  { border-top-right-radius: 3px; border-bottom-right-radius: 3px; }
+        .cell.h-second { border-top-left-radius: 3px;  border-bottom-left-radius: 3px;  }
+        .cell.v-first  { border-bottom-left-radius: 3px; border-bottom-right-radius: 3px; }
+        .cell.v-second { border-top-left-radius: 3px;    border-top-right-radius: 3px;   }
+
+        /* Layer 1: board cell base (lesson mode) */
+        .board-cell {
+            background: #fffdf5;
+            border: 1.5px solid rgba(0,0,0,0.12);
+        }
+
+        /* Layer 2: physical domino tile (lesson mode) */
+        .domino-overlay {
             position: absolute;
-            top: 1px;
-            left: 2px;
-            font-size: 9px;
-            font-weight: 600;
-            color: #666;
-            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-evenly;
+            background: #fffdf5;
+            border: 2px solid #333;
+            border-radius: 8px;
+            box-shadow: 1px 2px 5px rgba(0,0,0,0.22);
+            opacity: 0;
+            z-index: 2;
             pointer-events: none;
+            box-sizing: border-box;
+        }
+
+        /* Layer 3: constraint region color overlay (lesson mode) */
+        .region-overlay {
+            position: absolute;
+            border-radius: 8px;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        .region-overlay.region-highlight {
+            outline: 2.5px solid #1a6dcc;
+            outline-offset: -2px;
+            z-index: 4;
+        }
+
+        /* Animation when a domino tile is placed */
+        @keyframes dominoPlace {
+            0%   { transform: scale(0.82); opacity: 0; }
+            65%  { transform: scale(1.04); opacity: 1; }
+            100% { transform: scale(1);    opacity: 1; }
+        }
+
+        .domino-overlay.just-revealed {
+            animation: dominoPlace 0.35s ease-out forwards;
+        }
+
+        /* Constraint badge (diamond shape) */
+        .constraint-badge {
+            position: absolute;
+            width: 26px;
+            height: 26px;
+            transform: rotate(45deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+            pointer-events: none;
+            border-radius: 4px;
+        }
+
+        .constraint-badge span {
+            transform: rotate(-45deg);
+            font-size: 10px;
+            font-weight: 800;
+            color: #fff;
             white-space: nowrap;
+            line-height: 1;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
-
-        /* Flash animation when a domino is revealed */
-        @keyframes revealFlash {
-            0% { box-shadow: inset 0 0 0 3px #f0c040; }
-            100% { box-shadow: inset 0 0 0 0px transparent; }
-        }
-
-        .cell.just-revealed {
-            animation: revealFlash 0.6s ease-out;
-        }
-
-        /* Region tint colors (very pale) */
-        .region-tint-0 { background: #fff3e0; }
-        .region-tint-1 { background: #e8f5e9; }
-        .region-tint-2 { background: #e3f2fd; }
-        .region-tint-3 { background: #fce4ec; }
-        .region-tint-4 { background: #f3e5f5; }
-        .region-tint-5 { background: #e0f7fa; }
-        .region-tint-6 { background: #fff8e1; }
-        .region-tint-7 { background: #f1f8e9; }
-        .region-tint-8 { background: #ede7f6; }
-        .region-tint-9 { background: #e8eaf6; }
-        .region-tint-10 { background: #fbe9e7; }
-        .region-tint-11 { background: #efebe9; }
 
         .legend {
             margin-top: 12px;
@@ -338,6 +379,16 @@
             padding: 14px 10px;
         }
 
+        .hint-controls-nav {
+            margin-top: 6px;
+        }
+
+        .hint-controls-nav .btn {
+            flex: 1;
+            font-size: 15px;
+            padding: 11px 10px;
+        }
+
         #step-counter {
             text-align: center;
             margin-top: 8px;
@@ -345,12 +396,6 @@
             font-size: 15px;
         }
 
-        /* Highlight the active constraint region */
-        .cell.region-highlight {
-            outline: 2px solid #1a6dcc;
-            outline-offset: -2px;
-            z-index: 1;
-        }
 
         /* --- Advanced section --- */
         .advanced-section {
@@ -426,6 +471,53 @@
             opacity: 0.7;
         }
 
+        /* --- Domino tray --- */
+        #domino-tray {
+            margin-top: 16px;
+            padding: 14px;
+            background: #f5f5f5;
+            border-radius: 12px;
+        }
+
+        .domino-tray-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            text-align: center;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .domino-tray-tiles {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+        }
+
+        .domino-tile {
+            display: flex;
+            align-items: center;
+            background: #fffdf5;
+            border: 2px solid #333;
+            border-radius: 5px;
+            box-shadow: 1px 2px 3px rgba(0,0,0,0.18);
+            transition: opacity 0.4s;
+            flex-shrink: 0;
+        }
+
+        .domino-divider {
+            width: 2px;
+            background: #333;
+            align-self: stretch;
+            flex-shrink: 0;
+        }
+
+        .domino-tile.used {
+            opacity: 0.15;
+        }
+
         /* --- Mobile tweaks --- */
         @media (max-width: 480px) {
             body {
@@ -487,17 +579,26 @@
         <div id="grid-legend" class="legend" style="display:none;">Each color is one domino. The number is the pips on that half.</div>
     </div>
 
+    <div id="domino-tray" style="display:none;">
+        <div class="domino-tray-label" id="domino-tray-label"></div>
+        <div class="domino-tray-tiles" id="domino-tray-tiles"></div>
+    </div>
+
     <div id="lesson-section" style="display:none;">
         <div class="progress-bar">
             <div class="progress-fill" id="progress-fill"></div>
         </div>
-        <div class="hint-card" id="hint-card">
-            <div class="hint-text" id="hint-text">Tap "Show Hint" to begin learning step by step.</div>
-            <div class="explanation-text" id="explanation-text" style="display:none;"></div>
-        </div>
         <div class="hint-controls">
             <button class="btn btn-primary" id="hint-action-btn">Show Hint</button>
             <button class="btn btn-secondary" id="show-solution-btn">Show All</button>
+        </div>
+        <div class="hint-controls hint-controls-nav">
+            <button class="btn btn-secondary" id="hint-back-btn" disabled>← Back</button>
+            <button class="btn btn-secondary" id="reset-lesson-btn">↺ Reset</button>
+        </div>
+        <div class="hint-card" id="hint-card">
+            <div class="hint-text" id="hint-text">Tap "Show Hint" to begin learning step by step.</div>
+            <div class="explanation-text" id="explanation-text" style="display:none;"></div>
         </div>
         <div id="step-counter"></div>
     </div>
@@ -551,6 +652,7 @@
         let lessonNumCols = 0;
         let lessonCellSize = 0;
         let lessonFontSize = 0;
+        let lessonDominoPool = [];
 
         // --- Grid size segmented control ---
         let selectedGridSize = 4;
@@ -574,7 +676,11 @@
             currentStep = 0;
             stepState = 'READY';
             fullSolution = null;
+            lessonDominoPool = [];
             lessonSection.style.display = 'none';
+            const tray = document.getElementById('domino-tray');
+            tray.style.display = 'none';
+            document.getElementById('domino-tray-tiles').innerHTML = '';
         }
 
         // --- Import & Learn from NYT ---
@@ -641,6 +747,7 @@
                         result.constraints_display
                     );
                     startLesson();
+                    renderDominoTray(puzzle.domino_pool);
                 } else {
                     importStatus.textContent = 'No solution found.';
                     importStatus.className = 'status-msg error';
@@ -699,14 +806,87 @@
             '#FFCCE5', '#CCF5FF', '#FFE5CC', '#CCF5E6', '#F5CCFF', '#CCFFE5',
         ];
 
+        // --- Domino tray ---
+        // Each entry is an array of [cx, cy] percentages within a 100×100 SVG viewBox.
+        const PIP_POSITIONS = [
+            [],                                                                   // 0
+            [[50, 50]],                                                           // 1
+            [[75, 25], [25, 75]],                                                 // 2
+            [[75, 25], [50, 50], [25, 75]],                                       // 3
+            [[25, 25], [75, 25], [25, 75], [75, 75]],                             // 4
+            [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],                   // 5
+            [[25, 25], [75, 25], [25, 50], [75, 50], [25, 75], [75, 75]],         // 6
+        ];
+
+        function makePipSVG(value, size) {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 100 100');
+            svg.setAttribute('width', size);
+            svg.setAttribute('height', size);
+            (PIP_POSITIONS[value] || []).forEach(([cx, cy]) => {
+                const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                c.setAttribute('cx', cx);
+                c.setAttribute('cy', cy);
+                c.setAttribute('r', 9);
+                c.setAttribute('fill', '#222');
+                svg.appendChild(c);
+            });
+            return svg;
+        }
+
+        function renderDominoTray(dominoPool) {
+            lessonDominoPool = dominoPool;
+            const tilesEl = document.getElementById('domino-tray-tiles');
+            tilesEl.innerHTML = '';
+            const halfSize = 36;
+            dominoPool.forEach((pair, idx) => {
+                const [left, right] = pair;
+                const tile = document.createElement('div');
+                tile.classList.add('domino-tile');
+                tile.dataset.idx = idx;
+                tile.title = `${left}|${right}`;
+                const divider = document.createElement('div');
+                divider.classList.add('domino-divider');
+                divider.style.height = halfSize + 'px';
+                tile.appendChild(makePipSVG(left, halfSize));
+                tile.appendChild(divider);
+                tile.appendChild(makePipSVG(right, halfSize));
+                tilesEl.appendChild(tile);
+            });
+            updateTrayLabel();
+            document.getElementById('domino-tray').style.display = '';
+        }
+
+        function markDominoUsed(dominoIdx) {
+            const tile = document.querySelector(`.domino-tile[data-idx="${dominoIdx}"]`);
+            if (tile) tile.classList.add('used');
+            updateTrayLabel();
+        }
+
+        function unmarkDominoUsed(dominoIdx) {
+            const tile = document.querySelector(`.domino-tile[data-idx="${dominoIdx}"]`);
+            if (tile) tile.classList.remove('used');
+            updateTrayLabel();
+        }
+
+        function updateTrayLabel() {
+            const total = lessonDominoPool.length;
+            const used = document.querySelectorAll('.domino-tile.used').length;
+            const remaining = total - used;
+            const label = document.getElementById('domino-tray-label');
+            if (!label) return;
+            label.textContent = remaining === 0
+                ? 'All dominoes placed!'
+                : `${remaining} of ${total} remaining`;
+        }
+
         // --- Render the full solved grid (for advanced / empty grid solve) ---
         function renderGrid(solution) {
             const numRows = solution.length;
             const numCols = solution[0].length;
 
             const maxWidth = Math.min(document.body.clientWidth - 32, 570);
-            const borderSpace = 6 + numCols + 1;
-            const cellSize = Math.max(36, Math.floor((maxWidth - borderSpace) / numCols));
+            const cellSize = Math.max(36, Math.floor((maxWidth - (numCols - 1) * 3) / numCols));
             const fontSize = Math.max(16, Math.floor(cellSize * 0.45));
 
             solutionGrid.style.gridTemplateColumns = `repeat(${numCols}, ${cellSize}px)`;
@@ -730,7 +910,7 @@
                             div.classList.add(cell.is_first ? 'v-first' : 'v-second');
                         }
                     } else {
-                        div.style.background = '#eee';
+                        div.classList.add('inactive');
                     }
 
                     solutionGrid.appendChild(div);
@@ -750,76 +930,143 @@
             lessonNumCols = gridSize;
 
             const maxWidth = Math.min(document.body.clientWidth - 32, 570);
-            const borderSpace = 6 + gridSize + 1;
-            lessonCellSize = Math.max(36, Math.floor((maxWidth - borderSpace) / gridSize));
+            lessonCellSize = Math.max(36, Math.floor((maxWidth - (gridSize - 1) * 3) / gridSize));
             lessonFontSize = Math.max(16, Math.floor(lessonCellSize * 0.45));
+            const gap = 3;
 
             solutionGrid.style.gridTemplateColumns = `repeat(${gridSize}, ${lessonCellSize}px)`;
 
-            // Build cell-to-constraint-region mapping for labels and tints
-            const cellToRegion = {}; // "x,y" -> region index
-            const cellIsFirstInRegion = {}; // "x,y" -> true if first cell in region
-            const regionLabels = {}; // region index -> label string
+            const TINT_COLORS = [
+                'rgba(248,196,113,0.55)', 'rgba(130,224,170,0.55)', 'rgba(133,193,233,0.55)',
+                'rgba(241,148,138,0.55)', 'rgba(195,155,211,0.55)', 'rgba(118,215,196,0.55)',
+                'rgba(249,231,159,0.55)', 'rgba(171,235,198,0.55)', 'rgba(210,180,222,0.55)',
+                'rgba(169,204,227,0.55)', 'rgba(250,215,160,0.55)', 'rgba(168,178,189,0.55)',
+            ];
+            const BADGE_COLORS = [
+                '#D68910', '#1E8449', '#1A5276', '#CB4335', '#7D3C98',
+                '#0E6655', '#B7950B', '#1D8348', '#6C3483', '#154360',
+                '#A04000', '#566573',
+            ];
 
+            function badgeLabel(label) {
+                if (label === 'BLANK')         return '0';
+                if (label === 'EQUAL')         return '=';
+                if (label === 'ALL DIFFERENT') return '≠';
+                if (label.startsWith('SUM '))  return label.slice(4);
+                return label.replace(' ', '');
+            }
+
+            const regionFirstCell = {};
             if (constraintsDisplay) {
                 constraintsDisplay.forEach((c, idx) => {
-                    regionLabels[idx] = c.label;
-                    // Find the top-left cell of this region (for label placement)
-                    let firstKey = null;
-                    let firstRow = Infinity;
-                    let firstCol = Infinity;
+                    let firstRow = Infinity, firstCol = Infinity;
                     c.region.forEach(cell => {
-                        const key = `${cell[0]},${cell[1]}`;
-                        cellToRegion[key] = idx;
                         if (cell[0] < firstRow || (cell[0] === firstRow && cell[1] < firstCol)) {
-                            firstRow = cell[0];
-                            firstCol = cell[1];
-                            firstKey = key;
+                            firstRow = cell[0]; firstCol = cell[1];
                         }
                     });
-                    if (firstKey) {
-                        cellIsFirstInRegion[firstKey] = idx;
+                    if (firstRow !== Infinity) {
+                        regionFirstCell[idx] = { row: firstRow, col: firstCol, label: c.label };
                     }
                 });
             }
 
+            // ── LAYER 1: board cell grid (ivory base) ──────────────────────────
             for (let x = 0; x < gridSize; x++) {
                 for (let y = 0; y < gridSize; y++) {
-                    const key = `${x},${y}`;
                     const div = document.createElement('div');
                     div.classList.add('cell');
                     div.setAttribute('data-row', x);
                     div.setAttribute('data-col', y);
-                    div.style.width = lessonCellSize + 'px';
+                    div.style.width  = lessonCellSize + 'px';
                     div.style.height = lessonCellSize + 'px';
-                    div.style.fontSize = lessonFontSize + 'px';
-
-                    if (!activeCellsSet.has(key)) {
-                        div.style.background = '#ddd';
-                    } else {
-                        div.classList.add('unrevealed');
-                        // Add region tint
-                        const regionIdx = cellToRegion[key];
-                        if (regionIdx !== undefined) {
-                            div.classList.add(`region-tint-${regionIdx % 12}`);
-                        }
-                        // Add constraint label on the first cell of each region
-                        if (cellIsFirstInRegion[key] !== undefined) {
-                            const label = document.createElement('span');
-                            label.classList.add('constraint-label');
-                            label.textContent = regionLabels[cellIsFirstInRegion[key]];
-                            div.appendChild(label);
-                        }
-                    }
-
+                    const key = `${x},${y}`;
+                    div.classList.add(activeCellsSet.has(key) ? 'board-cell' : 'inactive');
                     solutionGrid.appendChild(div);
                 }
             }
+
+            // ── LAYER 2: domino overlays (hidden; revealed step by step) ────────
+            if (fullSolution) {
+                const seen = new Set();
+                for (let x = 0; x < gridSize; x++) {
+                    for (let y = 0; y < gridSize; y++) {
+                        const cell = fullSolution[x] && fullSolution[x][y];
+                        if (!cell) continue;
+                        const didx = cell.domino_idx;
+                        if (seen.has(didx)) continue;
+                        seen.add(didx);
+
+                        const isH = cell.orientation === 'horizontal';
+                        let r1 = x, c1 = y;
+                        if (!cell.is_first) { if (isH) c1 = y - 1; else r1 = x - 1; }
+                        const r2 = isH ? r1 : r1 + 1;
+                        const c2 = isH ? c1 + 1 : c1;
+                        const val1 = fullSolution[r1][c1].value;
+                        const val2 = fullSolution[r2][c2].value;
+
+                        const dom = document.createElement('div');
+                        dom.classList.add('domino-overlay');
+                        dom.dataset.dominoIdx = didx;
+                        dom.style.left        = (c1 * (lessonCellSize + gap)) + 'px';
+                        dom.style.top         = (r1 * (lessonCellSize + gap)) + 'px';
+                        dom.style.flexDirection = isH ? 'row' : 'column';
+                        dom.style.width  = (isH ? 2 * lessonCellSize + gap : lessonCellSize) + 'px';
+                        dom.style.height = (isH ? lessonCellSize : 2 * lessonCellSize + gap) + 'px';
+
+                        const pipSize = Math.floor(lessonCellSize * 0.78);
+                        dom.appendChild(makePipSVG(val1, pipSize));
+
+                        const divider = document.createElement('div');
+                        divider.style.background = '#333';
+                        divider.style.flexShrink = '0';
+                        if (isH) { divider.style.width = '2px'; divider.style.height = '68%'; }
+                        else     { divider.style.height = '2px'; divider.style.width  = '68%'; }
+                        dom.appendChild(divider);
+
+                        dom.appendChild(makePipSVG(val2, pipSize));
+                        solutionGrid.appendChild(dom);
+                    }
+                }
+            }
+
+            // ── LAYER 3: constraint region color overlays ───────────────────────
+            if (constraintsDisplay) {
+                constraintsDisplay.forEach((c, idx) => {
+                    const tint = TINT_COLORS[idx % 12];
+                    c.region.forEach(cell => {
+                        if (!activeCellsSet.has(`${cell[0]},${cell[1]}`)) return;
+                        const ov = document.createElement('div');
+                        ov.classList.add('region-overlay');
+                        ov.setAttribute('data-row', cell[0]);
+                        ov.setAttribute('data-col', cell[1]);
+                        ov.style.left       = (cell[1] * (lessonCellSize + gap)) + 'px';
+                        ov.style.top        = (cell[0] * (lessonCellSize + gap)) + 'px';
+                        ov.style.width      = lessonCellSize + 'px';
+                        ov.style.height     = lessonCellSize + 'px';
+                        ov.style.background = tint;
+                        solutionGrid.appendChild(ov);
+                    });
+                });
+            }
+
+            // ── Constraint badges (topmost) ─────────────────────────────────────
+            const badgeSize = 26;
+            Object.entries(regionFirstCell).forEach(([idx, { row, col, label }]) => {
+                const badge = document.createElement('div');
+                badge.classList.add('constraint-badge');
+                badge.style.background = BADGE_COLORS[idx % BADGE_COLORS.length];
+                badge.style.left = (col * (lessonCellSize + gap) - badgeSize / 2) + 'px';
+                badge.style.top  = (row * (lessonCellSize + gap) - badgeSize / 2) + 'px';
+                const span = document.createElement('span');
+                span.textContent = badgeLabel(label);
+                badge.appendChild(span);
+                solutionGrid.appendChild(badge);
+            });
         }
 
         function getCellElement(row, col) {
-            const idx = row * lessonNumCols + col;
-            return solutionGrid.children[idx];
+            return solutionGrid.querySelector(`[data-row="${row}"][data-col="${col}"]`);
         }
 
         function startLesson() {
@@ -834,6 +1081,7 @@
             hintActionBtn.disabled = false;
             showSolutionBtn.style.display = '';
             updateProgress();
+            updateBackBtn();
 
             lessonSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
@@ -851,54 +1099,38 @@
             }
         }
 
+        function updateBackBtn() {
+            const backBtn = document.getElementById('hint-back-btn');
+            if (!backBtn) return;
+            backBtn.disabled = (currentStep === 0 && stepState === 'READY');
+        }
+
         function highlightRegion(regionCells) {
-            // Clear any previous highlights
             clearRegionHighlight();
             if (!regionCells) return;
-            regionCells.forEach(cell => {
-                const el = getCellElement(cell[0], cell[1]);
-                if (el) el.classList.add('region-highlight');
+            regionCells.forEach(([r, c]) => {
+                solutionGrid.querySelectorAll(
+                    `.region-overlay[data-row="${r}"][data-col="${c}"]`
+                ).forEach(el => el.classList.add('region-highlight'));
             });
         }
 
         function clearRegionHighlight() {
-            solutionGrid.querySelectorAll('.region-highlight').forEach(el => {
-                el.classList.remove('region-highlight');
-            });
+            solutionGrid.querySelectorAll('.region-overlay.region-highlight')
+                .forEach(el => el.classList.remove('region-highlight'));
         }
 
         function revealStep(stepIndex) {
             const step = hintSteps[stepIndex];
-            step.cells.forEach((cell, i) => {
-                const [row, col] = cell;
-                const el = getCellElement(row, col);
-                if (!el) return;
-
-                // Remove constraint label if present
-                const label = el.querySelector('.constraint-label');
-                if (label) label.remove();
-
-                // Remove unrevealed and region tint
-                el.classList.remove('unrevealed');
-                for (let t = 0; t < 12; t++) {
-                    el.classList.remove(`region-tint-${t}`);
-                }
-
-                el.textContent = step.values[i];
-                el.style.background = COLORS[step.domino_idx % COLORS.length];
-                el.style.fontSize = lessonFontSize + 'px';
-
-                // Apply domino border classes
-                if (step.orientation === 'horizontal') {
-                    el.classList.add(i === 0 ? 'h-first' : 'h-second');
-                } else {
-                    el.classList.add(i === 0 ? 'v-first' : 'v-second');
-                }
-
-                // Flash animation
-                el.classList.add('just-revealed');
-                setTimeout(() => el.classList.remove('just-revealed'), 600);
-            });
+            markDominoUsed(step.domino_idx);
+            const dom = solutionGrid.querySelector(
+                `.domino-overlay[data-domino-idx="${step.domino_idx}"]`
+            );
+            if (dom) {
+                dom.style.opacity = '1';
+                dom.classList.add('just-revealed');
+                setTimeout(() => dom.classList.remove('just-revealed'), 400);
+            }
         }
 
         // --- Hint action button state machine ---
@@ -940,13 +1172,13 @@
                 updateProgress();
             }
 
+            updateBackBtn();
             hintCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         });
 
         // --- Show full solution ---
         showSolutionBtn.addEventListener('click', () => {
             if (!lessonActive) return;
-            // Reveal all remaining steps
             for (let i = currentStep; i < hintSteps.length; i++) {
                 revealStep(i);
             }
@@ -959,6 +1191,63 @@
             hintActionBtn.disabled = true;
             showSolutionBtn.style.display = 'none';
             updateProgress();
+            updateBackBtn();
+        });
+
+        // --- Go back one step ---
+        document.getElementById('hint-back-btn').addEventListener('click', () => {
+            if (!lessonActive) return;
+            clearRegionHighlight();
+            explanationText.style.display = 'none';
+
+            if (stepState === 'HINT_SHOWN') {
+                // Just undo showing the hint text — go back to READY
+                stepState = 'READY';
+                hintText.textContent = currentStep === 0
+                    ? 'Tap "Show Hint" to begin learning step by step.'
+                    : 'Tap "Show Hint" to see the next clue.';
+                hintActionBtn.textContent = 'Show Hint';
+                hintActionBtn.disabled = false;
+            } else {
+                // From READY or REVEALED: undo the last placed domino
+                // In both states, last revealed domino is at index currentStep - 1
+                const targetStep = currentStep - 1;
+                if (targetStep < 0) return;
+                const step = hintSteps[targetStep];
+                const dom = solutionGrid.querySelector(
+                    `.domino-overlay[data-domino-idx="${step.domino_idx}"]`
+                );
+                if (dom) dom.style.opacity = '0';
+                unmarkDominoUsed(step.domino_idx);
+                currentStep = targetStep;
+                stepState = 'READY';
+                hintText.textContent = 'Tap "Show Hint" to see the next clue.';
+                hintActionBtn.textContent = 'Show Hint';
+                hintActionBtn.disabled = false;
+                showSolutionBtn.style.display = '';
+                updateProgress();
+            }
+            updateBackBtn();
+        });
+
+        // --- Reset lesson ---
+        document.getElementById('reset-lesson-btn').addEventListener('click', () => {
+            if (!lessonActive) return;
+            solutionGrid.querySelectorAll('.domino-overlay')
+                .forEach(el => el.style.opacity = '0');
+            document.querySelectorAll('.domino-tile.used')
+                .forEach(el => el.classList.remove('used'));
+            updateTrayLabel();
+            clearRegionHighlight();
+            currentStep = 0;
+            stepState = 'READY';
+            hintText.textContent = 'Tap "Show Hint" to begin learning step by step.';
+            explanationText.style.display = 'none';
+            hintActionBtn.textContent = 'Show Hint';
+            hintActionBtn.disabled = false;
+            showSolutionBtn.style.display = '';
+            updateProgress();
+            updateBackBtn();
         });
     </script>
 </body>

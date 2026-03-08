@@ -38,25 +38,35 @@ class PipsConstraintChecker:
         constraint: Constraint,
         pip_grid: List[List[Union[int, None]]]
     ) -> bool:
-        # Only evaluate once the region is fully filled
-        if not all(pip_grid[x][y] is not None for x, y in constraint.region):
+        region = constraint.region
+        filled_values = [pip_grid[x][y] for x, y in region if pip_grid[x][y] is not None]
+
+        if not filled_values:
             return True
 
-        values = [pip_grid[x][y] for x, y in constraint.region]
+        all_filled = len(filled_values) == len(region)
 
         match constraint.type:
             case ConstraintType.EQUAL:
-                return len(set(values)) == 1
+                # All filled values must be equal to each other
+                return len(set(filled_values)) == 1
             case ConstraintType.NOT_EQUAL:
-                return len(set(values)) == len(values)
+                # No duplicate values among filled cells
+                return len(set(filled_values)) == len(filled_values)
             case ConstraintType.GREATER_THAN:
-                return all(v > constraint.value for v in values)
+                # Every filled value must already exceed the threshold
+                return all(v > constraint.value for v in filled_values)
             case ConstraintType.LESS_THAN:
-                return all(v < constraint.value for v in values)
+                # Every filled value must already be below the threshold
+                return all(v < constraint.value for v in filled_values)
             case ConstraintType.SUM:
-                return sum(values) == constraint.value
+                s = sum(filled_values)
+                if not all_filled:
+                    # Partial check: sum cannot already exceed the target
+                    return s <= constraint.value
+                return s == constraint.value
             case ConstraintType.BLANK:
-                return all(v == 0 for v in values)
+                return all(v == 0 for v in filled_values)
             case _:
                 raise ValueError(f"Unsupported constraint type: {constraint.type}")
 
@@ -108,6 +118,27 @@ class PipsSolver:
                 return False
         return True
 
+    def _has_orphaned_cell(self) -> bool:
+        """Return True if any empty cell has no empty neighbour.
+
+        Such a cell can never be covered by a domino, so any partial
+        assignment that produces one is a dead end and should be pruned
+        immediately rather than explored further.
+        """
+        for x in range(self.grid_size):
+            for y in range(self.grid_size):
+                if self.pip_grid[x][y] is not None:
+                    continue  # already filled or inactive
+                for dx, dy in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+                    nx, ny = x + dx, y + dy
+                    if (0 <= nx < self.grid_size and
+                            0 <= ny < self.grid_size and
+                            self.pip_grid[nx][ny] is None):
+                        break  # found a valid neighbour
+                else:
+                    return True  # no empty neighbour → orphan
+        return False
+
     def _backtrack(self) -> bool:
         cell = self._first_empty()
         if cell is None:
@@ -140,7 +171,9 @@ class PipsSolver:
                     self.placement_grid[x2][y2] = (i, orientation, False)
                     self.used[i] = True
 
-                    if self._constraints_ok() and self._backtrack():
+                    if (not self._has_orphaned_cell() and
+                            self._constraints_ok() and
+                            self._backtrack()):
                         return True
 
                     self.pip_grid[x][y] = None
