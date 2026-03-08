@@ -1064,6 +1064,7 @@
                         dom.style.flexDirection = isH ? 'row' : 'column';
                         dom.style.width  = (isH ? 2 * lessonCellSize + gap : lessonCellSize) + 'px';
                         dom.style.height = (isH ? lessonCellSize : 2 * lessonCellSize + gap) + 'px';
+                        dom.style.background = dominoColorMap[didx] ?? '#fffdf5';
 
                         const pipSize = Math.floor(lessonCellSize * 0.78);
                         dom.appendChild(makePipSVG(val1, pipSize));
