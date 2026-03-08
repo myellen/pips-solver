@@ -202,8 +202,12 @@
         /* --- Solution grid --- */
         #solution-grid {
             display: inline-grid;
-            border: 3px solid #222;
             margin-top: 16px;
+        }
+
+        .cell.inactive {
+            background: transparent !important;
+            border-color: transparent !important;
         }
 
         .grid-wrapper {
@@ -856,7 +860,7 @@
                             div.classList.add(cell.is_first ? 'v-first' : 'v-second');
                         }
                     } else {
-                        div.style.background = '#eee';
+                        div.classList.add('inactive');
                     }
 
                     solutionGrid.appendChild(div);
@@ -921,7 +925,7 @@
                     div.style.fontSize = lessonFontSize + 'px';
 
                     if (!activeCellsSet.has(key)) {
-                        div.style.background = '#ddd';
+                        div.classList.add('inactive');
                     } else {
                         div.classList.add('unrevealed');
                         // Add region tint
