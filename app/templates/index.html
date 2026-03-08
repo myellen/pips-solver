@@ -426,6 +426,53 @@
             opacity: 0.7;
         }
 
+        /* --- Domino tray --- */
+        #domino-tray {
+            margin-top: 16px;
+            padding: 14px;
+            background: #f5f5f5;
+            border-radius: 12px;
+        }
+
+        .domino-tray-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            text-align: center;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .domino-tray-tiles {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+        }
+
+        .domino-tile {
+            display: flex;
+            align-items: center;
+            background: #fffdf5;
+            border: 2px solid #333;
+            border-radius: 5px;
+            box-shadow: 1px 2px 3px rgba(0,0,0,0.18);
+            transition: opacity 0.4s;
+            flex-shrink: 0;
+        }
+
+        .domino-divider {
+            width: 2px;
+            background: #333;
+            align-self: stretch;
+            flex-shrink: 0;
+        }
+
+        .domino-tile.used {
+            opacity: 0.15;
+        }
+
         /* --- Mobile tweaks --- */
         @media (max-width: 480px) {
             body {
@@ -485,6 +532,11 @@
     <div class="grid-wrapper">
         <div id="solution-grid"></div>
         <div id="grid-legend" class="legend" style="display:none;">Each color is one domino. The number is the pips on that half.</div>
+    </div>
+
+    <div id="domino-tray" style="display:none;">
+        <div class="domino-tray-label" id="domino-tray-label"></div>
+        <div class="domino-tray-tiles" id="domino-tray-tiles"></div>
     </div>
 
     <div id="lesson-section" style="display:none;">
@@ -551,6 +603,7 @@
         let lessonNumCols = 0;
         let lessonCellSize = 0;
         let lessonFontSize = 0;
+        let lessonDominoPool = [];
 
         // --- Grid size segmented control ---
         let selectedGridSize = 4;
@@ -574,7 +627,11 @@
             currentStep = 0;
             stepState = 'READY';
             fullSolution = null;
+            lessonDominoPool = [];
             lessonSection.style.display = 'none';
+            const tray = document.getElementById('domino-tray');
+            tray.style.display = 'none';
+            document.getElementById('domino-tray-tiles').innerHTML = '';
         }
 
         // --- Import & Learn from NYT ---
@@ -641,6 +698,7 @@
                         result.constraints_display
                     );
                     startLesson();
+                    renderDominoTray(puzzle.domino_pool);
                 } else {
                     importStatus.textContent = 'No solution found.';
                     importStatus.className = 'status-msg error';
@@ -698,6 +756,74 @@
             '#FFB3E6', '#C9FFE5', '#FFD9BA', '#B3F0FF', '#DEB3FF', '#B3FFD9',
             '#FFCCE5', '#CCF5FF', '#FFE5CC', '#CCF5E6', '#F5CCFF', '#CCFFE5',
         ];
+
+        // --- Domino tray ---
+        // Each entry is an array of [cx, cy] percentages within a 100×100 SVG viewBox.
+        const PIP_POSITIONS = [
+            [],                                                                   // 0
+            [[50, 50]],                                                           // 1
+            [[75, 25], [25, 75]],                                                 // 2
+            [[75, 25], [50, 50], [25, 75]],                                       // 3
+            [[25, 25], [75, 25], [25, 75], [75, 75]],                             // 4
+            [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],                   // 5
+            [[25, 25], [75, 25], [25, 50], [75, 50], [25, 75], [75, 75]],         // 6
+        ];
+
+        function makePipSVG(value, size) {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 100 100');
+            svg.setAttribute('width', size);
+            svg.setAttribute('height', size);
+            (PIP_POSITIONS[value] || []).forEach(([cx, cy]) => {
+                const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                c.setAttribute('cx', cx);
+                c.setAttribute('cy', cy);
+                c.setAttribute('r', 12);
+                c.setAttribute('fill', '#222');
+                svg.appendChild(c);
+            });
+            return svg;
+        }
+
+        function renderDominoTray(dominoPool) {
+            lessonDominoPool = dominoPool;
+            const tilesEl = document.getElementById('domino-tray-tiles');
+            tilesEl.innerHTML = '';
+            const halfSize = 36;
+            dominoPool.forEach((pair, idx) => {
+                const [left, right] = pair;
+                const tile = document.createElement('div');
+                tile.classList.add('domino-tile');
+                tile.dataset.idx = idx;
+                tile.title = `${left}|${right}`;
+                const divider = document.createElement('div');
+                divider.classList.add('domino-divider');
+                divider.style.height = halfSize + 'px';
+                tile.appendChild(makePipSVG(left, halfSize));
+                tile.appendChild(divider);
+                tile.appendChild(makePipSVG(right, halfSize));
+                tilesEl.appendChild(tile);
+            });
+            updateTrayLabel();
+            document.getElementById('domino-tray').style.display = '';
+        }
+
+        function markDominoUsed(dominoIdx) {
+            const tile = document.querySelector(`.domino-tile[data-idx="${dominoIdx}"]`);
+            if (tile) tile.classList.add('used');
+            updateTrayLabel();
+        }
+
+        function updateTrayLabel() {
+            const total = lessonDominoPool.length;
+            const used = document.querySelectorAll('.domino-tile.used').length;
+            const remaining = total - used;
+            const label = document.getElementById('domino-tray-label');
+            if (!label) return;
+            label.textContent = remaining === 0
+                ? 'All dominoes placed!'
+                : `${remaining} of ${total} remaining`;
+        }
 
         // --- Render the full solved grid (for advanced / empty grid solve) ---
         function renderGrid(solution) {
@@ -869,6 +995,7 @@
 
         function revealStep(stepIndex) {
             const step = hintSteps[stepIndex];
+            markDominoUsed(step.domino_idx);
             step.cells.forEach((cell, i) => {
                 const [row, col] = cell;
                 const el = getCellElement(row, col);
@@ -946,7 +1073,6 @@
         // --- Show full solution ---
         showSolutionBtn.addEventListener('click', () => {
             if (!lessonActive) return;
-            // Reveal all remaining steps
             for (let i = currentStep; i < hintSteps.length; i++) {
                 revealStep(i);
             }
